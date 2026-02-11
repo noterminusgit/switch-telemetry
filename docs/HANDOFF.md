@@ -3,8 +3,8 @@
 ## Project Status
 
 **Location**: `/home/dude/switch-telemetry/`
-**State**: Architecture documentation complete. No code implementation yet.
-**Ready for**: Phase 1 implementation (project scaffolding + core schemas).
+**State**: Phases 1-4 complete. 74 tests passing, zero warnings.
+**Ready for**: Phase 5 implementation (Alerting & Notifications).
 
 ## Documentation Index
 
@@ -26,10 +26,16 @@
 | `docs/guardrails/NEVER_DO.md` | 10 critical prohibitions with code examples |
 | `docs/guardrails/ALWAYS_DO.md` | 20 mandatory practices |
 | `docs/guardrails/CODE_REVIEW_CHECKLIST.md` | Review checklist for PRs |
+| `docs/design/phase-1-foundation.md` | Phase 1 design (Foundation) |
+| `docs/plans/phase-1-foundation.md` | Phase 1 implementation plan |
+| `docs/design/phase-5-alerting.md` | Phase 5 design (Alerting & Notifications) |
+| `docs/plans/phase-5-alerting.md` | Phase 5 implementation plan |
+| `docs/design/phase-6-auth.md` | Phase 6 design (Authentication & Authorization) |
+| `docs/design/phase-7-security-audit.md` | Phase 7 design (Security Audit) |
 
 ## Implementation Phases
 
-### Phase 1: Foundation (Week 1-2)
+### Phase 1: Foundation (Week 1-2) -- COMPLETE
 - `mix phx.new switch_telemetry --no-mailer --no-dashboard`
 - Add dependencies (timescale, grpc, protobuf, sweet_xml, vega_lite, tucan, horde, libcluster, oban)
 - Install npm packages in assets/ (vega, vega-lite, vega-embed)
@@ -37,7 +43,7 @@
 - Configure dual Mix releases (collector + web)
 - Set up conditional supervision tree with NODE_ROLE
 
-### Phase 2: Collector Core (Week 3-4)
+### Phase 2: Collector Core (Week 3-4) -- COMPLETE
 - Compile gNMI proto files, generate Elixir stubs
 - Implement GnmiSession GenServer (connect, subscribe, parse notifications)
 - Implement NetconfSession GenServer (SSH connect, XML RPC, parse responses)
@@ -45,7 +51,7 @@
 - Implement batch metric insertion
 - PubSub broadcasting from collectors
 
-### Phase 3: Dashboard UI (Week 5-6)
+### Phase 3: Dashboard UI (Week 5-6) -- COMPLETE
 - Dashboard CRUD (create, edit, delete dashboards)
 - Widget configuration UI (add/remove widgets, choose metrics, set time ranges)
 - TelemetryChart LiveComponent wrapping VegaLite/Tucan with VegaLiteHook
@@ -53,13 +59,48 @@
 - QueryRouter for intelligent data source selection
 - Continuous aggregate migrations
 
-### Phase 4: Distribution & Scale (Week 7-8)
+### Phase 4: Distribution & Scale (Week 7-8) -- COMPLETE
 - libcluster configuration for BEAM clustering
 - Horde setup for distributed device sessions
 - Consistent hashing device assignment
 - NodeMonitor for failover handling
 - Docker/Kubernetes deployment manifests
 - Load testing with simulated devices
+
+### Phase 5: Alerting & Notifications (Week 9-10)
+- Alert rules: threshold-based conditions on metric paths (above, below, absent, rate_increase)
+- Alert events: immutable log of every state change (firing, resolved, acknowledged)
+- Notification channels: webhook, Slack, email (Swoosh)
+- AlertEvaluator Oban worker: periodic rule evaluation against recent metrics
+- AlertNotifier Oban worker: async dispatch per (event, channel) pair
+- AlertLive: manage rules, view active alerts, event history, channel configuration
+- Real-time alert badges on dashboard header and device pages via PubSub
+- New deps: Finch (HTTP client), Swoosh (email)
+- Design: `docs/design/phase-5-alerting.md`
+- Plan: `docs/plans/phase-5-alerting.md`
+
+### Phase 6: Authentication & Authorization (Week 11-12)
+- User accounts with session-based auth (phx.gen.auth pattern)
+- Three roles: admin, operator, viewer with permission matrix
+- Dashboard ownership (created_by field)
+- Role-gated routes: viewers read-only, operators manage devices/alerts/own dashboards, admins manage all
+- User management UI (admin only)
+- User settings (change email/password)
+- Login rate limiting
+- New deps: bcrypt_elixir
+- Design: `docs/design/phase-6-auth.md`
+
+### Phase 7: Security Audit (Week 13-14)
+- Credential encryption: wire up Cloak Vault, encrypt device credentials at rest
+- Input validation: review all changesets, raw SQL, atom creation, string lengths
+- Transport security: force_ssl, HSTS, secure cookies, TLS verification
+- Content Security Policy: CSP headers (document Vega unsafe-eval requirement)
+- Secrets management: audit env vars, signing salts, .gitignore patterns
+- Dependency audit: mix hex.audit, npm audit, update vulnerable deps
+- Logging security: redact credentials/tokens from logs, filter sensitive params
+- BEAM security: distribution cookie, firewall docs, catch-all handle_info clauses
+- Deliverables: audit checklist, production hardening guide, env var documentation
+- Design: `docs/design/phase-7-security-audit.md`
 
 ## Key Hex Dependencies
 
@@ -101,7 +142,8 @@ end
 
 ## Next Steps
 
-Director AI should begin with Phase 1:
-1. Create a design document in `docs/design/phase-1-foundation.md`
-2. Create an implementation plan in `docs/plans/phase-1-foundation.md`
-3. Hand off to Implementor for execution
+Implementor should begin Phase 5 (Alerting & Notifications):
+1. Read design: `docs/design/phase-5-alerting.md`
+2. Read plan: `docs/plans/phase-5-alerting.md`
+3. Execute tasks in group order (Groups 1-6, 15 tasks total)
+4. TDD: write tests first, then implementation
