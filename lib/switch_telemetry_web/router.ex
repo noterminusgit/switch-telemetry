@@ -26,5 +26,12 @@ defmodule SwitchTelemetryWeb.Router do
     live "/devices", DeviceLive.Index, :index
     live "/devices/new", DeviceLive.Index, :new
     live "/devices/:id", DeviceLive.Show, :show
+
+    live "/alerts", AlertLive.Index, :index
+    live "/alerts/rules/new", AlertLive.Index, :new_rule
+    live "/alerts/rules/:id/edit", AlertLive.Index, :edit_rule
+    live "/alerts/channels", AlertLive.Index, :channels
+    live "/alerts/channels/new", AlertLive.Index, :new_channel
+    live "/alerts/channels/:id/edit", AlertLive.Index, :edit_channel
   end
 end

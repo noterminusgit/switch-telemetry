@@ -28,7 +28,8 @@ defmodule SwitchTelemetry.Application do
       {Phoenix.PubSub, name: SwitchTelemetry.PubSub},
       {Horde.Registry, name: SwitchTelemetry.DistributedRegistry, keys: :unique, members: :auto},
       {Horde.DynamicSupervisor,
-       name: SwitchTelemetry.DistributedSupervisor, strategy: :one_for_one, members: :auto}
+       name: SwitchTelemetry.DistributedSupervisor, strategy: :one_for_one, members: :auto},
+      {Finch, name: SwitchTelemetry.Finch}
     ]
   end
 

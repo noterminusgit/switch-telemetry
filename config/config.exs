@@ -29,9 +29,19 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Swoosh mailer (dev/test use local adapter, prod configured in runtime.exs)
+config :switch_telemetry, SwitchTelemetry.Mailer, adapter: Swoosh.Adapters.Local
+
 # Oban default config (overridden per environment and by NODE_ROLE in runtime.exs)
 config :switch_telemetry, Oban,
   repo: SwitchTelemetry.Repo,
-  queues: [default: 10, discovery: 2, maintenance: 1, notifications: 5]
+  queues: [default: 10, discovery: 2, maintenance: 1, notifications: 5, alerts: 1],
+  plugins: [
+    {Oban.Plugins.Cron,
+     crontab: [
+       {"* * * * *", SwitchTelemetry.Workers.AlertEvaluator},
+       {"0 3 * * *", SwitchTelemetry.Workers.AlertEventPruner}
+     ]}
+  ]
 
 import_config "#{config_env()}.exs"

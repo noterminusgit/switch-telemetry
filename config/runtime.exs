@@ -56,6 +56,17 @@ if config_env() == :prod do
       ]
     ]
 
+  # Swoosh mailer -- optional SMTP config for alert email notifications
+  if smtp_relay = System.get_env("SMTP_RELAY") do
+    config :switch_telemetry, SwitchTelemetry.Mailer,
+      adapter: Swoosh.Adapters.SMTP,
+      relay: smtp_relay,
+      port: String.to_integer(System.get_env("SMTP_PORT", "587")),
+      username: System.get_env("SMTP_USERNAME"),
+      password: System.get_env("SMTP_PASSWORD"),
+      tls: :always
+  end
+
   # Oban -- only on collector nodes
   if node_role in ["collector", "both"] do
     config :switch_telemetry, Oban,
@@ -63,7 +74,8 @@ if config_env() == :prod do
       queues: [
         discovery: 2,
         maintenance: 1,
-        notifications: 5
+        notifications: 5,
+        alerts: 1
       ]
   else
     config :switch_telemetry, Oban, queues: false

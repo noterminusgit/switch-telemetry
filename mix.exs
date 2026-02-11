@@ -60,6 +60,10 @@ defmodule SwitchTelemetry.MixProject do
       # Security
       {:cloak_ecto, "~> 1.3"},
 
+      # Notifications
+      {:finch, "~> 0.18"},
+      {:swoosh, "~> 1.16"},
+
       # Utilities
       {:jason, "~> 1.4"},
       {:hash_ring, "~> 0.4"},
