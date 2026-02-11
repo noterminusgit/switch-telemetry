@@ -56,6 +56,9 @@ defmodule SwitchTelemetryWeb.Router do
       live "/dashboards", DashboardLive.Index, :index
       live "/dashboards/new", DashboardLive.Index, :new
       live "/dashboards/:id", DashboardLive.Show, :show
+      live "/dashboards/:id/edit", DashboardLive.Show, :edit
+      live "/dashboards/:id/widgets/new", DashboardLive.Show, :add_widget
+      live "/dashboards/:id/widgets/:widget_id/edit", DashboardLive.Show, :edit_widget
 
       live "/devices", DeviceLive.Index, :index
       live "/devices/new", DeviceLive.Index, :new

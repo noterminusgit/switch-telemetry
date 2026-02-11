@@ -13,6 +13,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     socket =
       socket
       |> assign(dashboard: dashboard, widget_data: %{}, page_title: dashboard.name)
+      |> assign(form: nil, editing_widget: nil)
+      |> assign(time_range: %{"type" => "relative", "duration" => "1h"})
 
     if connected?(socket) do
       subscribe_to_devices(dashboard)
@@ -23,11 +25,36 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   end
 
   @impl true
+  def handle_params(params, _uri, socket) do
+    {:noreply, apply_action(socket, socket.assigns.live_action, params)}
+  end
+
+  defp apply_action(socket, :edit, _params) do
+    changeset = Dashboards.change_dashboard(socket.assigns.dashboard)
+    assign(socket, page_title: "Edit #{socket.assigns.dashboard.name}", form: to_form(changeset))
+  end
+
+  defp apply_action(socket, :add_widget, _params) do
+    assign(socket, page_title: "Add Widget")
+  end
+
+  defp apply_action(socket, :edit_widget, %{"widget_id" => widget_id}) do
+    widget = Dashboards.get_widget!(widget_id)
+    assign(socket, page_title: "Edit Widget", editing_widget: widget)
+  end
+
+  defp apply_action(socket, :show, _params) do
+    assign(socket, page_title: socket.assigns.dashboard.name, form: nil, editing_widget: nil)
+  end
+
+  @impl true
   def handle_info(:load_widget_data, socket) do
+    time_range = socket.assigns.time_range
+
     widget_data =
       socket.assigns.dashboard.widgets
       |> Map.new(fn widget ->
-        series = load_widget_series(widget)
+        series = load_widget_series(widget, time_range)
         {widget.id, series}
       end)
 
@@ -50,6 +77,19 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     {:noreply, assign(socket, widget_data: widget_data)}
   end
 
+  def handle_info({:widget_saved, dashboard}, socket) do
+    {:noreply,
+     socket
+     |> assign(dashboard: dashboard)
+     |> push_patch(to: ~p"/dashboards/#{dashboard.id}")}
+  end
+
+  def handle_info({:time_range_changed, time_range}, socket) do
+    socket = assign(socket, time_range: time_range)
+    send(self(), :load_widget_data)
+    {:noreply, socket}
+  end
+
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
@@ -65,6 +105,26 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     end
   end
 
+  def handle_event("export_widget", %{"id" => widget_id}, socket) do
+    widget = Enum.find(socket.assigns.dashboard.widgets, &(&1.id == widget_id))
+    filename = "#{(widget && widget.title) || "chart"}.png"
+    {:noreply, push_event(socket, "vega_lite:#{widget_id}:export_png", %{filename: filename})}
+  end
+
+  def handle_event("update_dashboard", %{"dashboard" => params}, socket) do
+    case Dashboards.update_dashboard(socket.assigns.dashboard, params) do
+      {:ok, dashboard} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Dashboard updated")
+         |> assign(dashboard: Dashboards.get_dashboard!(dashboard.id))
+         |> push_patch(to: ~p"/dashboards/#{dashboard.id}")}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, form: to_form(changeset))}
+    end
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -76,8 +136,47 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
           </.link>
           <h1 class="text-2xl font-bold text-gray-900 mt-1">{@dashboard.name}</h1>
           <p :if={@dashboard.description} class="text-sm text-gray-500 mt-1">{@dashboard.description}</p>
+          <div class="mt-2">
+            <.live_component
+              module={SwitchTelemetryWeb.Components.TimeRangePicker}
+              id="time-range-picker"
+              selected={@time_range}
+            />
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <.link patch={~p"/dashboards/#{@dashboard.id}/widgets/new"} class="bg-indigo-600 text-white px-3 py-1.5 rounded text-sm hover:bg-indigo-700">
+            Add Widget
+          </.link>
+          <.link patch={~p"/dashboards/#{@dashboard.id}/edit"} class="bg-gray-100 text-gray-700 px-3 py-1.5 rounded text-sm hover:bg-gray-200">
+            Edit
+          </.link>
         </div>
       </header>
+
+      <.live_component
+        :if={@live_action in [:add_widget, :edit_widget]}
+        module={SwitchTelemetryWeb.Components.WidgetEditor}
+        id="widget-editor"
+        dashboard={@dashboard}
+        widget={@editing_widget}
+        action={@live_action}
+      />
+
+      <div :if={@live_action == :edit} class="mb-8 bg-white rounded-lg shadow p-6">
+        <h2 class="text-lg font-semibold mb-4">Edit Dashboard</h2>
+        <.simple_form for={@form} phx-submit="update_dashboard">
+          <.input field={@form[:name]} type="text" label="Name" required />
+          <.input field={@form[:description]} type="textarea" label="Description" />
+          <.input field={@form[:layout]} type="select" label="Layout" options={[{"Grid", "grid"}, {"Freeform", "freeform"}]} />
+          <.input field={@form[:refresh_interval_ms]} type="number" label="Refresh interval (ms)" />
+          <.input field={@form[:is_public]} type="checkbox" label="Public" />
+          <:actions>
+            <.button type="submit">Save</.button>
+            <.link patch={~p"/dashboards/#{@dashboard.id}"} class="ml-4 text-gray-600">Cancel</.link>
+          </:actions>
+        </.simple_form>
+      </div>
 
       <div class="grid grid-cols-12 gap-4">
         <%= for widget <- @dashboard.widgets do %>
@@ -86,14 +185,27 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
           >
             <div class="flex justify-between items-start mb-2">
               <h3 class="text-sm font-medium text-gray-700">{widget.title}</h3>
-              <button
-                phx-click="delete_widget"
-                phx-value-id={widget.id}
-                data-confirm="Remove this widget?"
-                class="text-gray-400 hover:text-red-600 text-xs"
-              >
-                &times;
-              </button>
+              <div class="flex items-center">
+                <button
+                  phx-click="export_widget"
+                  phx-value-id={widget.id}
+                  class="text-gray-400 hover:text-green-600 text-xs mr-1"
+                  title="Export as PNG"
+                >
+                  Export
+                </button>
+                <.link patch={~p"/dashboards/#{@dashboard.id}/widgets/#{widget.id}/edit"} class="text-gray-400 hover:text-blue-600 text-xs mr-1">
+                  Edit
+                </.link>
+                <button
+                  phx-click="delete_widget"
+                  phx-value-id={widget.id}
+                  data-confirm="Remove this widget?"
+                  class="text-gray-400 hover:text-red-600 text-xs"
+                >
+                  &times;
+                </button>
+              </div>
             </div>
             <.live_component
               module={SwitchTelemetryWeb.Components.TelemetryChart}
@@ -127,8 +239,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     end)
   end
 
-  defp load_widget_series(widget) do
-    time_range = resolve_time_range(widget.time_range)
+  defp load_widget_series(widget, global_time_range) do
+    time_range = resolve_time_range(global_time_range)
 
     (widget.queries || [])
     |> Enum.map(fn query ->
@@ -157,6 +269,16 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     now = DateTime.utc_now()
     offset = parse_duration(duration)
     %{start: DateTime.add(now, -offset, :second), end: now}
+  end
+
+  defp resolve_time_range(%{"type" => "absolute", "start" => start_str, "end" => end_str}) do
+    {:ok, start_dt, _} = DateTime.from_iso8601(start_str <> ":00Z")
+    {:ok, end_dt, _} = DateTime.from_iso8601(end_str <> ":00Z")
+    %{start: start_dt, end: end_dt}
+  rescue
+    _ ->
+      now = DateTime.utc_now()
+      %{start: DateTime.add(now, -3600, :second), end: now}
   end
 
   defp resolve_time_range(%{type: "relative", duration: duration}) do

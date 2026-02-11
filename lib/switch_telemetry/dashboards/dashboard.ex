@@ -10,6 +10,7 @@ defmodule SwitchTelemetry.Dashboards.Dashboard do
     field :layout, Ecto.Enum, values: [:grid, :freeform], default: :grid
     field :refresh_interval_ms, :integer, default: 5_000
     field :is_public, :boolean, default: false
+    field :tags, {:array, :string}, default: []
 
     belongs_to :creator, SwitchTelemetry.Accounts.User, foreign_key: :created_by
     has_many :widgets, SwitchTelemetry.Dashboards.Widget
@@ -18,7 +19,7 @@ defmodule SwitchTelemetry.Dashboards.Dashboard do
   end
 
   @required_fields ~w(id name)a
-  @optional_fields ~w(description layout refresh_interval_ms is_public created_by)a
+  @optional_fields ~w(description layout refresh_interval_ms is_public created_by tags)a
 
   def changeset(dashboard, attrs) do
     dashboard

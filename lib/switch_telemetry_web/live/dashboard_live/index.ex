@@ -34,6 +34,22 @@ defmodule SwitchTelemetryWeb.DashboardLive.Index do
     {:noreply, assign(socket, dashboards: Dashboards.list_dashboards())}
   end
 
+  def handle_event("clone", %{"id" => id}, socket) do
+    dashboard = Dashboards.get_dashboard!(id)
+    current_user_id = socket.assigns.current_user && socket.assigns.current_user.id
+
+    case Dashboards.clone_dashboard(dashboard, current_user_id) do
+      {:ok, _clone} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "Dashboard cloned")
+         |> assign(dashboards: Dashboards.list_dashboards())}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Failed to clone dashboard")}
+    end
+  end
+
   def handle_event("save", %{"dashboard" => dashboard_params}, socket) do
     dashboard_params = Map.put(dashboard_params, "id", socket.assigns.dashboard.id)
 
@@ -82,7 +98,14 @@ defmodule SwitchTelemetryWeb.DashboardLive.Index do
               <span>Refresh: {div(dashboard.refresh_interval_ms, 1000)}s</span>
             </div>
           </.link>
-          <div class="mt-4 flex justify-end">
+          <div class="mt-4 flex justify-end gap-3">
+            <button
+              phx-click="clone"
+              phx-value-id={dashboard.id}
+              class="text-sm text-indigo-600 hover:text-indigo-800"
+            >
+              Clone
+            </button>
             <button
               phx-click="delete"
               phx-value-id={dashboard.id}
