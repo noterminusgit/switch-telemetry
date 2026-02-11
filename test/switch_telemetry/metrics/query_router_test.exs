@@ -78,5 +78,154 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       result = QueryRouter.query_rate("dev_test", "/test/path", "1 minute", time_range)
       assert result == []
     end
+
+    test "computes rate of change from value_int counters" do
+      now = DateTime.utc_now()
+      t1 = DateTime.add(now, -50, :second)
+      t2 = DateTime.add(now, -40, :second)
+      t3 = DateTime.add(now, -30, :second)
+
+      SwitchTelemetry.Repo.insert_all("metrics", [
+        %{
+          time: t1,
+          device_id: "dev_rate_test",
+          path: "/interfaces/counters/in-octets",
+          source: "gnmi",
+          tags: %{},
+          value_float: nil,
+          value_int: 1000,
+          value_str: nil
+        },
+        %{
+          time: t2,
+          device_id: "dev_rate_test",
+          path: "/interfaces/counters/in-octets",
+          source: "gnmi",
+          tags: %{},
+          value_float: nil,
+          value_int: 2000,
+          value_str: nil
+        },
+        %{
+          time: t3,
+          device_id: "dev_rate_test",
+          path: "/interfaces/counters/in-octets",
+          source: "gnmi",
+          tags: %{},
+          value_float: nil,
+          value_int: 3500,
+          value_str: nil
+        }
+      ])
+
+      time_range = %{start: DateTime.add(now, -60, :second), end: now}
+
+      result =
+        QueryRouter.query_rate(
+          "dev_rate_test",
+          "/interfaces/counters/in-octets",
+          "1 minute",
+          time_range
+        )
+
+      assert length(result) >= 1
+      first = hd(result)
+      assert Map.has_key?(first, :bucket)
+      assert Map.has_key?(first, :rate_per_sec)
+      # rate = (max - min) / interval_seconds = (3500 - 1000) / 60 = 41.67
+      assert %Decimal{} = first.rate_per_sec
+      assert Decimal.gt?(first.rate_per_sec, Decimal.new(0))
+    end
+
+    test "raises on invalid bucket size" do
+      now = DateTime.utc_now()
+      time_range = %{start: DateTime.add(now, -60, :second), end: now}
+
+      assert_raise FunctionClauseError, fn ->
+        QueryRouter.query_rate("dev_test", "/path", "2 minutes", time_range)
+      end
+    end
+  end
+
+  describe "query/3 with data" do
+    test "returns aggregated results for short time range with actual data" do
+      now = DateTime.utc_now()
+      t1 = DateTime.add(now, -120, :second)
+      t2 = DateTime.add(now, -60, :second)
+
+      SwitchTelemetry.Repo.insert_all("metrics", [
+        %{
+          time: t1,
+          device_id: "dev_routing_test",
+          path: "/cpu/utilization",
+          source: "gnmi",
+          tags: %{},
+          value_float: 55.0,
+          value_int: nil,
+          value_str: nil
+        },
+        %{
+          time: t2,
+          device_id: "dev_routing_test",
+          path: "/cpu/utilization",
+          source: "gnmi",
+          tags: %{},
+          value_float: 65.0,
+          value_int: nil,
+          value_str: nil
+        }
+      ])
+
+      # Short range (< 1h) routes to raw table
+      time_range = %{start: DateTime.add(now, -300, :second), end: now}
+      result = QueryRouter.query("dev_routing_test", "/cpu/utilization", time_range)
+
+      assert is_list(result)
+      assert length(result) >= 1
+
+      # Verify aggregation structure
+      first = hd(result)
+      assert Map.has_key?(first, :bucket)
+      assert Map.has_key?(first, :avg_value)
+      assert Map.has_key?(first, :sample_count)
+    end
+
+    test "filters results by device_id and path correctly" do
+      now = DateTime.utc_now()
+      t1 = DateTime.add(now, -30, :second)
+
+      SwitchTelemetry.Repo.insert_all("metrics", [
+        %{
+          time: t1,
+          device_id: "dev_filter_a",
+          path: "/cpu",
+          source: "gnmi",
+          tags: %{},
+          value_float: 10.0,
+          value_int: nil,
+          value_str: nil
+        },
+        %{
+          time: t1,
+          device_id: "dev_filter_b",
+          path: "/cpu",
+          source: "gnmi",
+          tags: %{},
+          value_float: 90.0,
+          value_int: nil,
+          value_str: nil
+        }
+      ])
+
+      time_range = %{start: DateTime.add(now, -60, :second), end: now}
+
+      result_a = QueryRouter.query("dev_filter_a", "/cpu", time_range)
+      result_b = QueryRouter.query("dev_filter_b", "/cpu", time_range)
+
+      assert length(result_a) == 1
+      assert length(result_b) == 1
+      assert hd(result_a).avg_value == 10.0
+      assert hd(result_b).avg_value == 90.0
+    end
   end
 end

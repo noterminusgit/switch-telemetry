@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+  db:
+    image: timescale/timescaledb:latest-pg16
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: switch_telemetry_dev
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build:
+      context: .
+      args:
+        RELEASE_TYPE: web
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@db/switch_telemetry_dev
+      SECRET_KEY_BASE: "generate-a-secret-key-base-at-least-64-bytes-long-for-production-use"
+      CLOAK_KEY: "generate-a-32-byte-base64-encoded-key-for-production"
+      PHX_HOST: localhost
+      PORT: 4000
+      NODE_ROLE: web
+
+  collector:
+    build:
+      context: .
+      args:
+        RELEASE_TYPE: collector
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: ecto://postgres:postgres@db/switch_telemetry_dev
+      SECRET_KEY_BASE: "generate-a-secret-key-base-at-least-64-bytes-long-for-production-use"
+      CLOAK_KEY: "generate-a-32-byte-base64-encoded-key-for-production"
+      NODE_ROLE: collector
+
+volumes:
+  pgdata:

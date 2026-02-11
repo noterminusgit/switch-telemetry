@@ -1,0 +1,29 @@
+# Git
+.git
+.gitignore
+
+# Elixir/Mix
+_build
+deps
+*.ez
+
+# Node
+node_modules
+
+# IDE
+.elixir_ls
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test
+test
+cover
+
+# Documentation
+docs
+
+# Temporary
+tmp
