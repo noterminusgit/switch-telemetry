@@ -1,0 +1,25 @@
+<div class="mx-auto max-w-sm">
+  <.header class="text-center">
+    Log in
+    <:subtitle>
+      Welcome to Switch Telemetry
+    </:subtitle>
+  </.header>
+
+  <div :if={@error_message} class="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-900 ring-1 ring-rose-500">
+    {@error_message}
+  </div>
+
+  <.simple_form :let={f} for={@form} id="login_form" action={~p"/users/log_in"} phx-update="ignore">
+    <.input field={f[:email]} type="email" label="Email" required />
+    <.input field={f[:password]} type="password" label="Password" required />
+    <:actions :let={f}>
+      <.input field={f[:remember_me]} type="checkbox" label="Keep me logged in" />
+    </:actions>
+    <:actions>
+      <.button phx-disable-with="Logging in..." class="w-full">
+        Log in <span aria-hidden="true">&rarr;</span>
+      </.button>
+    </:actions>
+  </.simple_form>
+</div>

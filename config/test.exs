@@ -19,4 +19,6 @@ config :phoenix, :plug_init_mode, :runtime
 
 config :switch_telemetry, Oban, testing: :inline
 
+config :switch_telemetry, SwitchTelemetry.Mailer, adapter: Swoosh.Adapters.Test
+
 config :swoosh, :api_client, false

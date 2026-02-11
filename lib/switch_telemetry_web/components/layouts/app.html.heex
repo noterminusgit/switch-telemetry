@@ -4,9 +4,21 @@
       <a href="/" class="font-semibold text-brand">Switch Telemetry</a>
     </div>
     <div class="flex items-center gap-4 font-semibold leading-6 text-zinc-900">
-      <a href="/dashboards" class="hover:text-zinc-700">Dashboards</a>
-      <a href="/devices" class="hover:text-zinc-700">Devices</a>
-      <a href="/alerts" class="hover:text-zinc-700">Alerts</a>
+      <div :if={@current_user} class="flex items-center gap-4">
+        <a href="/dashboards" class="hover:text-zinc-700">Dashboards</a>
+        <a href="/devices" class="hover:text-zinc-700">Devices</a>
+        <a href="/alerts" class="hover:text-zinc-700">Alerts</a>
+        <a :if={@current_user.role == :admin} href="/admin/users" class="hover:text-zinc-700">
+          Users
+        </a>
+        <span class="text-zinc-500 text-xs font-normal">{@current_user.email}</span>
+        <.link href={~p"/users/log_out"} method="delete" class="text-zinc-700 hover:text-zinc-900">
+          Log out
+        </.link>
+      </div>
+      <div :if={!@current_user} class="flex items-center gap-4">
+        <a href="/users/log_in" class="hover:text-zinc-700">Log in</a>
+      </div>
     </div>
   </div>
 </header>

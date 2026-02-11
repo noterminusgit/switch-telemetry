@@ -4,6 +4,8 @@ defmodule SwitchTelemetryWeb.AlertLiveTest do
 
   alias SwitchTelemetry.Alerting
 
+  setup :register_and_log_in_user
+
   defp create_rule(attrs) do
     defaults = %{
       id: Ecto.UUID.generate(),

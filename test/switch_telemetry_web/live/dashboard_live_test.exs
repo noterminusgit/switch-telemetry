@@ -4,6 +4,8 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
 
   alias SwitchTelemetry.Dashboards
 
+  setup :register_and_log_in_user
+
   describe "Index" do
     test "lists dashboards", %{conn: conn} do
       {:ok, _view, html} = live(conn, ~p"/dashboards")

@@ -30,6 +30,7 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
     field :last_resolved_at, :utc_datetime_usec
 
     belongs_to :device, SwitchTelemetry.Devices.Device
+    belongs_to :creator, SwitchTelemetry.Accounts.User, foreign_key: :created_by
     has_many :events, SwitchTelemetry.Alerting.AlertEvent
     has_many :channel_bindings, SwitchTelemetry.Alerting.AlertChannelBinding
 
@@ -37,7 +38,7 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
   end
 
   @required_fields ~w(id name path condition)a
-  @optional_fields ~w(description device_id threshold duration_seconds cooldown_seconds severity enabled state last_fired_at last_resolved_at)a
+  @optional_fields ~w(description device_id threshold duration_seconds cooldown_seconds severity enabled state last_fired_at last_resolved_at created_by)a
 
   def changeset(rule, attrs) do
     rule

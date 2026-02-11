@@ -58,6 +58,7 @@ defmodule SwitchTelemetry.MixProject do
       {:oban, "~> 2.17"},
 
       # Security
+      {:bcrypt_elixir, "~> 3.0"},
       {:cloak_ecto, "~> 1.3"},
 
       # Notifications
