@@ -41,7 +41,20 @@ if config_env() == :prod do
   config :switch_telemetry, SwitchTelemetryWeb.Endpoint,
     url: [host: host, port: 443, scheme: "https"],
     http: [ip: {0, 0, 0, 0, 0, 0, 0, 0}, port: port],
-    secret_key_base: secret_key_base
+    secret_key_base: secret_key_base,
+    force_ssl: [hsts: true, rewrite_on: [:x_forwarded_proto]]
+
+  cloak_key =
+    System.get_env("CLOAK_KEY") ||
+      raise """
+      environment variable CLOAK_KEY is missing.
+      Generate one with: :crypto.strong_rand_bytes(32) |> Base.encode64()
+      """
+
+  config :switch_telemetry, SwitchTelemetry.Vault,
+    ciphers: [
+      default: {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!(cloak_key)}
+    ]
 
   # libcluster -- all nodes join the same BEAM cluster
   config :libcluster,

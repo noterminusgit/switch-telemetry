@@ -10,6 +10,8 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   # Reset password tokens valid for 1 day
   @reset_password_validity_in_days 1
 
+  @derive {Inspect, except: [:token]}
+
   schema "user_tokens" do
     field :token, :binary
     field :context, :string

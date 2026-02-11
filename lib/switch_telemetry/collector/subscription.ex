@@ -24,6 +24,27 @@ defmodule SwitchTelemetry.Collector.Subscription do
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
     |> validate_length(:paths, min: 1)
+    |> validate_paths()
     |> foreign_key_constraint(:device_id)
+  end
+
+  defp validate_paths(changeset) do
+    validate_change(changeset, :paths, fn :paths, paths ->
+      Enum.flat_map(paths, fn path ->
+        cond do
+          String.contains?(path, ["<", ">", "&", ";", "--"]) ->
+            [paths: "contains invalid characters in path: #{path}"]
+
+          String.length(path) > 512 ->
+            [paths: "path too long: #{path}"]
+
+          not String.match?(path, ~r{^/[a-zA-Z0-9/_\-\.:]+$}) ->
+            [paths: "invalid path format: #{path}"]
+
+          true ->
+            []
+        end
+      end)
+    end)
   end
 end

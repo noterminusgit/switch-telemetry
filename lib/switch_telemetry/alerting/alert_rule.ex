@@ -44,6 +44,9 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
     rule
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    |> validate_length(:name, max: 255)
+    |> validate_length(:description, max: 1000)
+    |> validate_length(:path, max: 512)
     |> validate_number(:duration_seconds, greater_than: 0)
     |> validate_number(:cooldown_seconds, greater_than_or_equal_to: 0)
     |> validate_threshold_required()

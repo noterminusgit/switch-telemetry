@@ -4,13 +4,14 @@ defmodule SwitchTelemetry.Devices.Credential do
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
+  @derive {Inspect, except: [:password, :ssh_key, :tls_key]}
   schema "credentials" do
     field :name, :string
     field :username, :string
-    field :password, :string
-    field :ssh_key, :string
-    field :tls_cert, :string
-    field :tls_key, :string
+    field :password, SwitchTelemetry.Encrypted.Binary
+    field :ssh_key, SwitchTelemetry.Encrypted.Binary
+    field :tls_cert, SwitchTelemetry.Encrypted.Binary
+    field :tls_key, SwitchTelemetry.Encrypted.Binary
 
     has_many :devices, SwitchTelemetry.Devices.Device
 
@@ -24,6 +25,8 @@ defmodule SwitchTelemetry.Devices.Credential do
     credential
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    |> validate_length(:name, max: 255)
+    |> validate_length(:username, max: 255)
     |> unique_constraint(:name)
   end
 end

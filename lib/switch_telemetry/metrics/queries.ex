@@ -67,7 +67,16 @@ defmodule SwitchTelemetry.Metrics.Queries do
     Enum.map(rows, fn row ->
       columns
       |> Enum.zip(row)
-      |> Map.new(fn {col, val} -> {String.to_atom(col), val} end)
+      |> Map.new(fn {col, val} -> {safe_column_to_atom(col), val} end)
     end)
   end
+
+  defp safe_column_to_atom("bucket"), do: :bucket
+  defp safe_column_to_atom("avg_value"), do: :avg_value
+  defp safe_column_to_atom("max_value"), do: :max_value
+  defp safe_column_to_atom("min_value"), do: :min_value
+  defp safe_column_to_atom("sample_count"), do: :sample_count
+
+  defp safe_column_to_atom(col),
+    do: raise(ArgumentError, "unexpected column name from SQL query: #{col}")
 end

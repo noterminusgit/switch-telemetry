@@ -29,6 +29,9 @@ config :logger, :console,
 
 config :phoenix, :json_library, Jason
 
+# Filter sensitive parameters from logs
+config :phoenix, :filter_parameters, ["password", "secret", "token", "ssh_key", "tls_key", "tls_cert", "current_password", "api_key", "cloak_key"]
+
 # Swoosh mailer (dev/test use local adapter, prod configured in runtime.exs)
 config :switch_telemetry, SwitchTelemetry.Mailer, adapter: Swoosh.Adapters.Local
 
@@ -42,6 +45,12 @@ config :switch_telemetry, Oban,
        {"* * * * *", SwitchTelemetry.Workers.AlertEvaluator},
        {"0 3 * * *", SwitchTelemetry.Workers.AlertEventPruner}
      ]}
+  ]
+
+# Cloak encryption for credentials at rest
+config :switch_telemetry, SwitchTelemetry.Vault,
+  ciphers: [
+    default: {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!("dVFyaWZSNk5hNjRSTmRaUE1UY3dRV2RzNGtHQTZPalk=")}
   ]
 
 import_config "#{config_env()}.exs"

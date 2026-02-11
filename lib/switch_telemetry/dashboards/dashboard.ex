@@ -24,6 +24,8 @@ defmodule SwitchTelemetry.Dashboards.Dashboard do
     dashboard
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    |> validate_length(:name, max: 255)
+    |> validate_length(:description, max: 1000)
     |> unique_constraint(:name)
   end
 end

@@ -38,8 +38,30 @@ defmodule SwitchTelemetry.Devices.Device do
     device
     |> cast(attrs, @required_fields ++ @optional_fields)
     |> validate_required(@required_fields)
+    |> validate_ip_address()
+    |> validate_hostname()
+    |> validate_inclusion(:gnmi_port, 1..65535)
+    |> validate_inclusion(:netconf_port, 1..65535)
+    |> validate_length(:ip_address, max: 45)
     |> unique_constraint(:hostname)
     |> unique_constraint(:ip_address)
     |> foreign_key_constraint(:credential_id)
+  end
+
+  defp validate_ip_address(changeset) do
+    validate_change(changeset, :ip_address, fn :ip_address, ip ->
+      case :inet.parse_address(String.to_charlist(ip)) do
+        {:ok, _} -> []
+        {:error, _} -> [ip_address: "must be a valid IPv4 or IPv6 address"]
+      end
+    end)
+  end
+
+  defp validate_hostname(changeset) do
+    changeset
+    |> validate_length(:hostname, max: 253)
+    |> validate_format(:hostname, ~r/^[a-zA-Z0-9]([a-zA-Z0-9\-\.]*[a-zA-Z0-9])?$/,
+      message: "must be a valid hostname (RFC 1123)"
+    )
   end
 end

@@ -36,3 +36,13 @@ npm-debug.log
 /.cache/
 assets/.cache/
 
+# Secret and credential files
+.env
+.env.*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+

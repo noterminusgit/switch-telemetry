@@ -27,7 +27,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   # How many days to keep the "remember me" cookie valid
   @max_age 60 * 60 * 24 * 60
   @remember_me_cookie "_switch_telemetry_web_user_remember_me"
-  @remember_me_options [sign: true, max_age: @max_age, same_site: "Lax"]
+  @remember_me_options [sign: true, max_age: @max_age, same_site: "Lax", http_only: true]
 
   @doc """
   Logs the user in by creating a session token.

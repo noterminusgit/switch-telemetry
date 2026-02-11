@@ -5,7 +5,8 @@ defmodule SwitchTelemetryWeb.Endpoint do
     store: :cookie,
     key: "_switch_telemetry_key",
     signing_salt: "KK51uzTY",
-    same_site: "Lax"
+    same_site: "Lax",
+    http_only: true
   ]
 
   socket "/live", Phoenix.LiveView.Socket,
