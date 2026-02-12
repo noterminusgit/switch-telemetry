@@ -119,7 +119,16 @@ defmodule SwitchTelemetry.Alerting do
       |> maybe_put_inserted_at()
 
     %AlertEvent{}
-    |> Ecto.Changeset.cast(attrs, [:id, :alert_rule_id, :device_id, :status, :value, :message, :metadata, :inserted_at])
+    |> Ecto.Changeset.cast(attrs, [
+      :id,
+      :alert_rule_id,
+      :device_id,
+      :status,
+      :value,
+      :message,
+      :metadata,
+      :inserted_at
+    ])
     |> Ecto.Changeset.validate_required([:id, :alert_rule_id, :status, :inserted_at])
     |> Repo.insert()
   end

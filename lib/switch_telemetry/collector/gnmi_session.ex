@@ -27,16 +27,14 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     device = Keyword.fetch!(opts, :device)
 
     name =
-      {:via, Horde.Registry,
-       {SwitchTelemetry.DistributedRegistry, {:gnmi, device.id}}}
+      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device.id}}}
 
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   def stop(device_id) do
     name =
-      {:via, Horde.Registry,
-       {SwitchTelemetry.DistributedRegistry, {:gnmi, device_id}}}
+      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device_id}}}
 
     GenServer.stop(name)
   end
@@ -68,9 +66,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         {:noreply, %{state | channel: channel, retry_count: 0}}
 
       {:error, reason} ->
-        Logger.warning(
-          "gNMI connection to #{state.device.hostname} failed: #{inspect(reason)}"
-        )
+        Logger.warning("gNMI connection to #{state.device.hostname} failed: #{inspect(reason)}")
 
         Devices.update_device(state.device, %{status: :unreachable})
         schedule_retry(state)
@@ -109,9 +105,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   # Stream task crashed
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
-    Logger.error(
-      "gNMI stream task crashed for #{state.device.hostname}: #{inspect(reason)}"
-    )
+    Logger.error("gNMI stream task crashed for #{state.device.hostname}: #{inspect(reason)}")
 
     schedule_retry(state)
     {:noreply, %{state | stream: nil, task_ref: nil}}

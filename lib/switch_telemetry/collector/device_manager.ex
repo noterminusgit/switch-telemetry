@@ -76,9 +76,7 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
             Map.put(acc, device.id, pids)
 
           {:error, reason} ->
-            Logger.warning(
-              "Failed to start session for #{device.hostname}: #{inspect(reason)}"
-            )
+            Logger.warning("Failed to start session for #{device.hostname}: #{inspect(reason)}")
 
             acc
         end

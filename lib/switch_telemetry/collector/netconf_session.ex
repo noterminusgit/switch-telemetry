@@ -35,16 +35,14 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     device = Keyword.fetch!(opts, :device)
 
     name =
-      {:via, Horde.Registry,
-       {SwitchTelemetry.DistributedRegistry, {:netconf, device.id}}}
+      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device.id}}}
 
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   def stop(device_id) do
     name =
-      {:via, Horde.Registry,
-       {SwitchTelemetry.DistributedRegistry, {:netconf, device_id}}}
+      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device_id}}}
 
     GenServer.stop(name)
   end
@@ -98,8 +96,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       interval = device.collection_interval_ms || 30_000
       {:ok, timer_ref} = :timer.send_interval(interval, :collect)
 
-      {:noreply,
-       %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref}}
+      {:noreply, %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref}}
     else
       error ->
         Logger.error("NETCONF connection to #{device.hostname} failed: #{inspect(error)}")

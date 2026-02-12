@@ -10,8 +10,11 @@ defmodule SwitchTelemetry.Repo.Migrations.EncryptCredentialFields do
 
   def down do
     execute "ALTER TABLE credentials ALTER COLUMN password TYPE text USING encode(password, 'escape')"
+
     execute "ALTER TABLE credentials ALTER COLUMN ssh_key TYPE text USING encode(ssh_key, 'escape')"
+
     execute "ALTER TABLE credentials ALTER COLUMN tls_cert TYPE text USING encode(tls_cert, 'escape')"
+
     execute "ALTER TABLE credentials ALTER COLUMN tls_key TYPE text USING encode(tls_key, 'escape')"
   end
 end

@@ -32,11 +32,11 @@ defmodule SwitchTelemetryWeb.AlertLive.RuleForm do
         "description" => rule.description || "",
         "device_id" => rule.device_id || "",
         "path" => rule.path || "",
-        "condition" => rule.condition && to_string(rule.condition) || "above",
-        "threshold" => rule.threshold && to_string(rule.threshold) || "",
+        "condition" => (rule.condition && to_string(rule.condition)) || "above",
+        "threshold" => (rule.threshold && to_string(rule.threshold)) || "",
         "duration_seconds" => to_string(rule.duration_seconds || 60),
         "cooldown_seconds" => to_string(rule.cooldown_seconds || 300),
-        "severity" => rule.severity && to_string(rule.severity) || "warning"
+        "severity" => (rule.severity && to_string(rule.severity)) || "warning"
       }
     )
   end

@@ -84,7 +84,11 @@ defmodule SwitchTelemetryWeb.CoreComponents do
   """
   attr :for, :any, required: true, doc: "the data structure for the form"
   attr :as, :any, default: nil, doc: "the server side parameter to collect all input under"
-  attr :rest, :global, include: ~w(autocomplete name rel action enctype method novalidate target multipart), doc: "additional HTML attributes"
+
+  attr :rest, :global,
+    include: ~w(autocomplete name rel action enctype method novalidate target multipart),
+    doc: "additional HTML attributes"
+
   slot :inner_block, required: true
   slot :actions, doc: "the slot for form actions, such as a submit button"
 
@@ -108,14 +112,22 @@ defmodule SwitchTelemetryWeb.CoreComponents do
   attr :name, :any
   attr :label, :string, default: nil
   attr :value, :any, default: nil
-  attr :type, :string, default: "text", values: ~w(checkbox color date datetime-local email file hidden month number password range radio search select tel text textarea time url week)
+
+  attr :type, :string,
+    default: "text",
+    values:
+      ~w(checkbox color date datetime-local email file hidden month number password range radio search select tel text textarea time url week)
+
   attr :field, Phoenix.HTML.FormField, doc: "a form field struct"
   attr :errors, :list, default: []
   attr :checked, :boolean, doc: "the checked flag for checkbox inputs"
   attr :prompt, :string, default: nil, doc: "the prompt for select inputs"
   attr :options, :list, doc: "the options to pass to Phoenix.HTML.Form.options_for_select/2"
   attr :multiple, :boolean, default: false, doc: "the multiple flag for select inputs"
-  attr :rest, :global, include: ~w(accept autocomplete capture cols disabled form list max maxlength min minlength multiple pattern placeholder readonly required rows size step)
+
+  attr :rest, :global,
+    include:
+      ~w(accept autocomplete capture cols disabled form list max maxlength min minlength multiple pattern placeholder readonly required rows size step)
 
   def input(%{field: %Phoenix.HTML.FormField{} = field} = assigns) do
     assigns

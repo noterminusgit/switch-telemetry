@@ -9,8 +9,7 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
     field :description, :string
     field :path, :string
 
-    field :condition, Ecto.Enum,
-      values: [:above, :below, :absent, :rate_increase]
+    field :condition, Ecto.Enum, values: [:above, :below, :absent, :rate_increase]
 
     field :threshold, :float
     field :duration_seconds, :integer, default: 60

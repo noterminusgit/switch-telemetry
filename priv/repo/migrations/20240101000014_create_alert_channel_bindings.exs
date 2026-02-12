@@ -4,11 +4,14 @@ defmodule SwitchTelemetry.Repo.Migrations.CreateAlertChannelBindings do
   def change do
     create table(:alert_channel_bindings, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :alert_rule_id, references(:alert_rules, type: :string, on_delete: :delete_all),
         null: false
+
       add :notification_channel_id,
-        references(:notification_channels, type: :string, on_delete: :delete_all),
-        null: false
+          references(:notification_channels, type: :string, on_delete: :delete_all),
+          null: false
+
       add :inserted_at, :utc_datetime_usec, null: false
     end
 

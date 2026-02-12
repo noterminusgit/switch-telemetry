@@ -33,11 +33,14 @@ defmodule SwitchTelemetry.AccountsTest do
   describe "get_user_by_email_and_password/2" do
     test "returns the user if the email and password are valid" do
       %{id: id} = user = create_user()
-      assert %User{id: ^id} = Accounts.get_user_by_email_and_password(user.email, "valid_password123")
+
+      assert %User{id: ^id} =
+               Accounts.get_user_by_email_and_password(user.email, "valid_password123")
     end
 
     test "returns nil if the email does not exist" do
-      assert Accounts.get_user_by_email_and_password("unknown@example.com", "valid_password123") == nil
+      assert Accounts.get_user_by_email_and_password("unknown@example.com", "valid_password123") ==
+               nil
     end
 
     test "returns nil if the password is wrong" do
@@ -66,18 +69,25 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "validates email format" do
-      {:error, changeset} = Accounts.register_user(%{email: "nope", password: "valid_password123"})
+      {:error, changeset} =
+        Accounts.register_user(%{email: "nope", password: "valid_password123"})
+
       assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     end
 
     test "validates password length" do
-      {:error, changeset} = Accounts.register_user(%{email: "test@example.com", password: "short"})
+      {:error, changeset} =
+        Accounts.register_user(%{email: "test@example.com", password: "short"})
+
       assert %{password: ["should be at least 12 character(s)"]} = errors_on(changeset)
     end
 
     test "validates email uniqueness" do
       user = create_user()
-      {:error, changeset} = Accounts.register_user(%{email: user.email, password: "valid_password123"})
+
+      {:error, changeset} =
+        Accounts.register_user(%{email: user.email, password: "valid_password123"})
+
       assert "has already been taken" in errors_on(changeset).email
     end
 
@@ -91,12 +101,16 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "auto-generates a UUID id" do
-      {:ok, user} = Accounts.register_user(%{email: "uuid@example.com", password: "valid_password123"})
+      {:ok, user} =
+        Accounts.register_user(%{email: "uuid@example.com", password: "valid_password123"})
+
       assert {:ok, _} = Ecto.UUID.cast(user.id)
     end
 
     test "defaults role to :viewer" do
-      {:ok, user} = Accounts.register_user(%{email: "role@example.com", password: "valid_password123"})
+      {:ok, user} =
+        Accounts.register_user(%{email: "role@example.com", password: "valid_password123"})
+
       assert user.role == :viewer
     end
   end
@@ -171,7 +185,9 @@ defmodule SwitchTelemetry.AccountsTest do
 
     test "updates the password", %{user: user} do
       {:ok, updated_user} =
-        Accounts.update_user_password(user, "valid_password123", %{password: "new_valid_password123"})
+        Accounts.update_user_password(user, "valid_password123", %{
+          password: "new_valid_password123"
+        })
 
       assert is_nil(updated_user.password)
       assert Accounts.get_user_by_email_and_password(updated_user.email, "new_valid_password123")
@@ -181,7 +197,9 @@ defmodule SwitchTelemetry.AccountsTest do
       _token = Accounts.generate_user_session_token(user)
 
       {:ok, _} =
-        Accounts.update_user_password(user, "valid_password123", %{password: "new_valid_password123"})
+        Accounts.update_user_password(user, "valid_password123", %{
+          password: "new_valid_password123"
+        })
 
       refute Repo.get_by(UserToken, user_id: user.id)
     end
@@ -291,7 +309,9 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "updates the password", %{user: user} do
-      {:ok, updated_user} = Accounts.reset_user_password(user, %{password: "new_valid_password123"})
+      {:ok, updated_user} =
+        Accounts.reset_user_password(user, %{password: "new_valid_password123"})
+
       assert is_nil(updated_user.password)
       assert Accounts.get_user_by_email_and_password(user.email, "new_valid_password123")
     end

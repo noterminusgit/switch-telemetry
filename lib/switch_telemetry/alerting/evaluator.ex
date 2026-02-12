@@ -41,7 +41,10 @@ defmodule SwitchTelemetry.Alerting.Evaluator do
   @spec should_fire?(map(), DateTime.t()) :: boolean()
   def should_fire?(%{last_fired_at: nil}, _current_time), do: true
 
-  def should_fire?(%{last_fired_at: last_fired_at, cooldown_seconds: cooldown_seconds}, current_time) do
+  def should_fire?(
+        %{last_fired_at: last_fired_at, cooldown_seconds: cooldown_seconds},
+        current_time
+      ) do
     DateTime.diff(current_time, last_fired_at, :second) >= cooldown_seconds
   end
 

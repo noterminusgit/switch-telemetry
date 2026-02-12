@@ -27,7 +27,7 @@ defmodule Gnmi.TypedValue do
   @moduledoc false
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
 
-  oneof :value, 0
+  oneof(:value, 0)
 
   field :string_val, 1, type: :string, oneof: 0
   field :int_val, 2, type: :int64, oneof: 0
@@ -128,7 +128,7 @@ defmodule Gnmi.SubscribeRequest do
   @moduledoc false
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
 
-  oneof :request, 0
+  oneof(:request, 0)
 
   field :subscribe, 1, type: Gnmi.SubscriptionList, oneof: 0
   field :poll, 3, type: Gnmi.Poll, oneof: 0
@@ -138,7 +138,7 @@ defmodule Gnmi.SubscribeResponse do
   @moduledoc false
   use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
 
-  oneof :response, 0
+  oneof(:response, 0)
 
   field :update, 1, type: Gnmi.Notification, oneof: 0
   field :sync_response, 3, type: :bool, oneof: 0

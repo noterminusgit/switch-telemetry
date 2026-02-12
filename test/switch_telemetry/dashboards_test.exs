@@ -50,7 +50,9 @@ defmodule SwitchTelemetry.DashboardsTest do
 
   describe "create_dashboard/1" do
     test "creates with valid attrs" do
-      assert {:ok, d} = Dashboards.create_dashboard(valid_dashboard_attrs(%{name: "My Dashboard"}))
+      assert {:ok, d} =
+               Dashboards.create_dashboard(valid_dashboard_attrs(%{name: "My Dashboard"}))
+
       assert d.name == "My Dashboard"
       assert d.layout == :grid
     end

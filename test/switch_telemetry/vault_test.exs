@@ -22,7 +22,10 @@ defmodule SwitchTelemetry.VaultTest do
       # Read back from DB
       loaded = Repo.get!(Credential, credential.id)
       assert loaded.password == "super_secret_password"
-      assert loaded.ssh_key == "-----BEGIN RSA PRIVATE KEY-----\nfake_key_data\n-----END RSA PRIVATE KEY-----"
+
+      assert loaded.ssh_key ==
+               "-----BEGIN RSA PRIVATE KEY-----\nfake_key_data\n-----END RSA PRIVATE KEY-----"
+
       assert loaded.username == "admin"
     end
 

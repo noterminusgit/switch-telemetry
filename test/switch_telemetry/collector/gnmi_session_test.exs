@@ -207,7 +207,13 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
     test "path formatting from prefix and path elems" do
       # Replicate the format_path logic inline
       prefix = %Gnmi.Path{elem: [%Gnmi.PathElem{name: "openconfig", key: %{}}]}
-      path = %Gnmi.Path{elem: [%Gnmi.PathElem{name: "interfaces", key: %{}}, %Gnmi.PathElem{name: "interface", key: %{"name" => "eth0"}}]}
+
+      path = %Gnmi.Path{
+        elem: [
+          %Gnmi.PathElem{name: "interfaces", key: %{}},
+          %Gnmi.PathElem{name: "interface", key: %{"name" => "eth0"}}
+        ]
+      }
 
       prefix_elems = if prefix, do: prefix.elem || [], else: []
       all_elems = prefix_elems ++ (path.elem || [])
@@ -227,7 +233,12 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
     end
 
     test "path formatting with nil prefix" do
-      path = %Gnmi.Path{elem: [%Gnmi.PathElem{name: "state", key: %{}}, %Gnmi.PathElem{name: "counters", key: %{}}]}
+      path = %Gnmi.Path{
+        elem: [
+          %Gnmi.PathElem{name: "state", key: %{}},
+          %Gnmi.PathElem{name: "counters", key: %{}}
+        ]
+      }
 
       prefix_elems = []
       all_elems = prefix_elems ++ (path.elem || [])
@@ -339,79 +350,103 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
 
     test "extract_float logic for double_val" do
       tv = %Gnmi.TypedValue{value: {:double_val, 99.9}}
-      result = case tv.value do
-        {:double_val, v} -> v
-        {:float_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:double_val, v} -> v
+          {:float_val, v} -> v
+          _ -> nil
+        end
+
       assert result == 99.9
     end
 
     test "extract_float logic for float_val" do
       tv = %Gnmi.TypedValue{value: {:float_val, 1.5}}
-      result = case tv.value do
-        {:double_val, v} -> v
-        {:float_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:double_val, v} -> v
+          {:float_val, v} -> v
+          _ -> nil
+        end
+
       assert result == 1.5
     end
 
     test "extract_float logic returns nil for int_val" do
       tv = %Gnmi.TypedValue{value: {:int_val, 42}}
-      result = case tv.value do
-        {:double_val, v} -> v
-        {:float_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:double_val, v} -> v
+          {:float_val, v} -> v
+          _ -> nil
+        end
+
       assert result == nil
     end
 
     test "extract_int logic for int_val" do
       tv = %Gnmi.TypedValue{value: {:int_val, -10}}
-      result = case tv.value do
-        {:int_val, v} -> v
-        {:uint_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:int_val, v} -> v
+          {:uint_val, v} -> v
+          _ -> nil
+        end
+
       assert result == -10
     end
 
     test "extract_int logic for uint_val" do
       tv = %Gnmi.TypedValue{value: {:uint_val, 255}}
-      result = case tv.value do
-        {:int_val, v} -> v
-        {:uint_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:int_val, v} -> v
+          {:uint_val, v} -> v
+          _ -> nil
+        end
+
       assert result == 255
     end
 
     test "extract_int logic returns nil for string_val" do
       tv = %Gnmi.TypedValue{value: {:string_val, "hello"}}
-      result = case tv.value do
-        {:int_val, v} -> v
-        {:uint_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:int_val, v} -> v
+          {:uint_val, v} -> v
+          _ -> nil
+        end
+
       assert result == nil
     end
 
     test "extract_str logic for string_val" do
       tv = %Gnmi.TypedValue{value: {:string_val, "up"}}
-      result = case tv.value do
-        {:string_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:string_val, v} -> v
+          _ -> nil
+        end
+
       assert result == "up"
     end
 
     test "extract_str logic returns nil for numeric types" do
       tv = %Gnmi.TypedValue{value: {:uint_val, 100}}
-      result = case tv.value do
-        {:string_val, v} -> v
-        _ -> nil
-      end
+
+      result =
+        case tv.value do
+          {:string_val, v} -> v
+          _ -> nil
+        end
+
       assert result == nil
     end
   end

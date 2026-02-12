@@ -82,7 +82,9 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "creates a widget", %{conn: conn} do
-      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_wgt_create", name: "Widget Create"})
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_wgt_create", name: "Widget Create"})
+
       {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}/widgets/new")
 
       view
@@ -94,20 +96,31 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "navigates to edit widget form", %{conn: conn} do
-      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_wgt_edit", name: "Widget Edit Test"})
-      {:ok, widget} = Dashboards.add_widget(dashboard, %{id: "wgt_edit1", title: "Edit Me", chart_type: :line})
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_wgt_edit", name: "Widget Edit Test"})
+
+      {:ok, widget} =
+        Dashboards.add_widget(dashboard, %{id: "wgt_edit1", title: "Edit Me", chart_type: :line})
+
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}/widgets/#{widget.id}/edit")
       assert html =~ "Edit Widget"
       assert html =~ "Edit Me"
     end
 
     test "deletes a widget", %{conn: conn} do
-      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_wgt_del", name: "Widget Del Test"})
-      {:ok, widget} = Dashboards.add_widget(dashboard, %{id: "wgt_del1", title: "Delete Me", chart_type: :line})
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_wgt_del", name: "Widget Del Test"})
+
+      {:ok, widget} =
+        Dashboards.add_widget(dashboard, %{id: "wgt_del1", title: "Delete Me", chart_type: :line})
+
       {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert render(view) =~ "Delete Me"
 
-      view |> element("button[phx-click=delete_widget][phx-value-id=#{widget.id}]") |> render_click()
+      view
+      |> element("button[phx-click=delete_widget][phx-value-id=#{widget.id}]")
+      |> render_click()
+
       refute render(view) =~ "Delete Me"
     end
   end
@@ -115,7 +128,11 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
   describe "Show" do
     test "displays dashboard", %{conn: conn} do
       {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_show1", name: "My Dashboard", description: "A test"})
+        Dashboards.create_dashboard(%{
+          id: "dash_show1",
+          name: "My Dashboard",
+          description: "A test"
+        })
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "My Dashboard"
@@ -147,7 +164,11 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
       {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_exp", name: "Export Test"})
 
       {:ok, _widget} =
-        Dashboards.add_widget(dashboard, %{id: "wgt_exp1", title: "Export Chart", chart_type: :line})
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_exp1",
+          title: "Export Chart",
+          chart_type: :line
+        })
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "Export"

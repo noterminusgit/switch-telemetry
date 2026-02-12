@@ -59,7 +59,10 @@ defmodule SwitchTelemetry.AlertingTest do
     test "with duplicate name returns error" do
       attrs = valid_rule_attrs(%{name: "Unique Rule Name"})
       assert {:ok, _rule} = Alerting.create_alert_rule(attrs)
-      assert {:error, changeset} = Alerting.create_alert_rule(valid_rule_attrs(%{name: "Unique Rule Name"}))
+
+      assert {:error, changeset} =
+               Alerting.create_alert_rule(valid_rule_attrs(%{name: "Unique Rule Name"}))
+
       assert %{name: ["has already been taken"]} = errors_on(changeset)
     end
   end

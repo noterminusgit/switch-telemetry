@@ -195,7 +195,9 @@ defmodule SwitchTelemetry.Collector.NetconfSessionTest do
             {"3.14", nil}
           ] do
         result = if numeric_logic?(value), do: nil, else: value
-        assert result == expected, "Expected #{inspect(expected)} for value #{inspect(value)}, got #{inspect(result)}"
+
+        assert result == expected,
+               "Expected #{inspect(expected)} for value #{inspect(value)}, got #{inspect(result)}"
       end
     end
   end

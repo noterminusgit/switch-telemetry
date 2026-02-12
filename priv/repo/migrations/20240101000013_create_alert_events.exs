@@ -4,8 +4,10 @@ defmodule SwitchTelemetry.Repo.Migrations.CreateAlertEvents do
   def change do
     create table(:alert_events, primary_key: false) do
       add :id, :string, primary_key: true
+
       add :alert_rule_id, references(:alert_rules, type: :string, on_delete: :delete_all),
         null: false
+
       add :device_id, :string
       add :status, :string, null: false
       add :value, :float

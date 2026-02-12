@@ -14,14 +14,14 @@ defmodule SwitchTelemetryWeb.AlertLive.ChannelForm do
      |> assign(
        form_values: %{
          "name" => channel.name || "",
-         "type" => channel.type && to_string(channel.type) || "webhook",
+         "type" => (channel.type && to_string(channel.type)) || "webhook",
          "enabled" => if(channel.enabled != false, do: "true", else: "false"),
          "webhook_url" => config["url"] || "",
          "slack_url" => config["url"] || "",
          "email_to" => config["to"] || "",
          "email_from" => config["from"] || ""
        },
-       selected_type: channel.type && to_string(channel.type) || "webhook"
+       selected_type: (channel.type && to_string(channel.type)) || "webhook"
      )}
   end
 

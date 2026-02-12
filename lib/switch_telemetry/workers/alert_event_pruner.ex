@@ -18,7 +18,11 @@ defmodule SwitchTelemetry.Workers.AlertEventPruner do
       Application.get_env(:switch_telemetry, :alert_event_max_age_days, @default_max_age_days)
 
     min_keep =
-      Application.get_env(:switch_telemetry, :alert_event_min_keep_per_rule, @default_min_keep_per_rule)
+      Application.get_env(
+        :switch_telemetry,
+        :alert_event_min_keep_per_rule,
+        @default_min_keep_per_rule
+      )
 
     cutoff = DateTime.utc_now() |> DateTime.add(-max_age_days * 86400, :second)
 

@@ -25,5 +25,7 @@ config :swoosh, :api_client, false
 
 config :switch_telemetry, SwitchTelemetry.Vault,
   ciphers: [
-    default: {Cloak.Ciphers.AES.GCM, tag: "AES.GCM.V1", key: Base.decode64!("dVFyaWZSNk5hNjRSTmRaUE1UY3dRV2RzNGtHQTZPalk=")}
+    default:
+      {Cloak.Ciphers.AES.GCM,
+       tag: "AES.GCM.V1", key: Base.decode64!("dVFyaWZSNk5hNjRSTmRaUE1UY3dRV2RzNGtHQTZPalk=")}
   ]

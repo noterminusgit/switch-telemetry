@@ -7,7 +7,14 @@ defmodule SwitchTelemetry.Metrics.Queries do
 
   alias SwitchTelemetry.Repo
 
-  @valid_bucket_sizes ["10 seconds", "30 seconds", "1 minute", "5 minutes", "15 minutes", "1 hour"]
+  @valid_bucket_sizes [
+    "10 seconds",
+    "30 seconds",
+    "1 minute",
+    "5 minutes",
+    "15 minutes",
+    "1 hour"
+  ]
 
   @doc """
   Get the most recent metrics for a device.
