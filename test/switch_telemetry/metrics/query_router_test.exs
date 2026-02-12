@@ -81,9 +81,16 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
 
     test "computes rate of change from value_int counters" do
       now = DateTime.utc_now()
-      t1 = DateTime.add(now, -50, :second)
-      t2 = DateTime.add(now, -40, :second)
-      t3 = DateTime.add(now, -30, :second)
+      # Align to start of a minute so all points land in the same time_bucket('1 minute')
+      minute_start =
+        now
+        |> DateTime.add(-120, :second)
+        |> Map.put(:second, 0)
+        |> Map.put(:microsecond, {0, 6})
+
+      t1 = DateTime.add(minute_start, 10, :second)
+      t2 = DateTime.add(minute_start, 20, :second)
+      t3 = DateTime.add(minute_start, 30, :second)
 
       SwitchTelemetry.Repo.insert_all("metrics", [
         %{
@@ -118,7 +125,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
         }
       ])
 
-      time_range = %{start: DateTime.add(now, -60, :second), end: now}
+      time_range = %{start: minute_start, end: DateTime.add(minute_start, 60, :second)}
 
       result =
         QueryRouter.query_rate(
@@ -128,7 +135,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
           time_range
         )
 
-      assert length(result) >= 1
+      assert length(result) == 1
       first = hd(result)
       assert Map.has_key?(first, :bucket)
       assert Map.has_key?(first, :rate_per_sec)
