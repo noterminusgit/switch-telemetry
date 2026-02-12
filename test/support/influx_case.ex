@@ -24,12 +24,14 @@ defmodule SwitchTelemetry.InfluxCase do
     config = Application.get_env(:switch_telemetry, SwitchTelemetry.InfluxDB)
     bucket = Keyword.fetch!(config, :bucket)
     org = Keyword.fetch!(config, :org)
+    scheme = Keyword.get(config, :scheme, "http")
     host = Keyword.fetch!(config, :host)
     port = Keyword.fetch!(config, :port)
-    token = Keyword.fetch!(config, :token)
+    auth = Keyword.fetch!(config, :auth)
+    token = Keyword.fetch!(auth, :token)
 
     url =
-      "#{host}:#{port}/api/v2/delete?org=#{URI.encode_www_form(org)}&bucket=#{URI.encode_www_form(bucket)}"
+      "#{scheme}://#{host}:#{port}/api/v2/delete?org=#{URI.encode_www_form(org)}&bucket=#{URI.encode_www_form(bucket)}"
 
     body =
       Jason.encode!(%{

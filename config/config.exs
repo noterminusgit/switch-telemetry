@@ -67,9 +67,10 @@ config :switch_telemetry, SwitchTelemetry.Vault,
 
 # InfluxDB connection for time-series metrics
 config :switch_telemetry, SwitchTelemetry.InfluxDB,
-  host: "http://localhost",
+  host: "localhost",
   port: 8086,
-  token: "dev-token",
+  scheme: "http",
+  auth: [method: :token, token: "dev-token"],
   bucket: "metrics_raw",
   org: "switch-telemetry",
   version: :v2

@@ -65,10 +65,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     """
 
     case InfluxDB.query(flux) do
-      {:ok, %{results: results}} ->
-        results
-        |> List.flatten()
-        |> Enum.map(&normalize_metric/1)
+      rows when is_list(rows) ->
+        Enum.map(rows, &normalize_metric/1)
 
       _ ->
         []
@@ -136,8 +134,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     """
 
     case InfluxDB.query(flux) do
-      {:ok, %{results: results}} ->
-        normalize_aggregates(results)
+      rows when is_list(rows) ->
+        normalize_aggregates(rows)
 
       _ ->
         []
@@ -174,10 +172,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     """
 
     case InfluxDB.query(flux) do
-      {:ok, %{results: results}} ->
-        results
-        |> List.flatten()
-        |> Enum.map(&normalize_rate/1)
+      rows when is_list(rows) ->
+        rows |> List.flatten() |> Enum.map(&normalize_rate/1)
 
       _ ->
         []
@@ -197,10 +193,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     """
 
     case InfluxDB.query(flux) do
-      {:ok, %{results: results}} ->
-        results
-        |> List.flatten()
-        |> Enum.map(fn row ->
+      rows when is_list(rows) and rows != [] ->
+        Enum.map(rows, fn row ->
           %{
             bucket: parse_influx_time(row["_time"]),
             avg_value: row["avg_value"],
@@ -230,12 +224,10 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   # Combine parallel aggregate results into unified rows
-  defp normalize_aggregates(results) do
-    # results is a list of series; group by yield name
-    grouped =
-      results
-      |> List.flatten()
-      |> Enum.group_by(fn row -> row["result"] end)
+  # Multi-yield Flux queries return a list of lists (one per yield)
+  defp normalize_aggregates(rows) do
+    flat_rows = List.flatten(rows)
+    grouped = Enum.group_by(flat_rows, fn row -> row["result"] end)
 
     mean_rows = Map.get(grouped, "mean", [])
     max_rows = Map.get(grouped, "max", [])
@@ -297,6 +289,12 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   defp format_time(%DateTime{} = dt), do: DateTime.to_iso8601(dt)
 
   defp parse_influx_time(nil), do: nil
+
+  defp parse_influx_time(ts) when is_integer(ts) do
+    ts
+    |> div(1_000_000_000)
+    |> DateTime.from_unix!()
+  end
 
   defp parse_influx_time(time_str) when is_binary(time_str) do
     case DateTime.from_iso8601(time_str) do

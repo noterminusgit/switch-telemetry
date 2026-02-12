@@ -11,7 +11,11 @@ if influx_host = System.get_env("INFLUXDB_HOST") do
   config :switch_telemetry, SwitchTelemetry.InfluxDB,
     host: influx_host,
     port: String.to_integer(System.get_env("INFLUXDB_PORT", "8086")),
-    token: System.get_env("INFLUXDB_TOKEN") || raise("INFLUXDB_TOKEN is required"),
+    scheme: System.get_env("INFLUXDB_SCHEME", "http"),
+    auth: [
+      method: :token,
+      token: System.get_env("INFLUXDB_TOKEN") || raise("INFLUXDB_TOKEN is required")
+    ],
     bucket: System.get_env("INFLUXDB_BUCKET", "metrics_raw"),
     org: System.get_env("INFLUXDB_ORG") || raise("INFLUXDB_ORG is required"),
     version: :v2

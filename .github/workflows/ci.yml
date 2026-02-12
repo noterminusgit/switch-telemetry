@@ -74,8 +74,9 @@ jobs:
         run: mix test
         env:
           DATABASE_URL: ecto://postgres:postgres@localhost/switch_telemetry_test
-          INFLUXDB_HOST: http://localhost
+          INFLUXDB_HOST: localhost
           INFLUXDB_PORT: "8086"
+          INFLUXDB_SCHEME: http
           INFLUXDB_TOKEN: test-token
           INFLUXDB_ORG: switch-telemetry
           INFLUXDB_BUCKET: metrics_test

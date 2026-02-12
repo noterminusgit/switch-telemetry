@@ -25,9 +25,10 @@ config :swoosh, :api_client, false
 
 # InfluxDB test config
 config :switch_telemetry, SwitchTelemetry.InfluxDB,
-  host: "http://localhost",
+  host: "localhost",
   port: 8086,
-  token: "test-token",
+  scheme: "http",
+  auth: [method: :token, token: "test-token"],
   bucket: "metrics_test",
   org: "switch-telemetry",
   version: :v2
