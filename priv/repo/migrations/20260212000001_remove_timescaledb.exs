@@ -2,17 +2,14 @@ defmodule SwitchTelemetry.Repo.Migrations.RemoveTimescaledb do
   use Ecto.Migration
 
   def up do
-    # Drop retention policies (if they exist)
-    execute "SELECT remove_retention_policy('metrics', if_exists => true)"
-
-    # Drop continuous aggregates
+    # Drop continuous aggregates (standard SQL, safe without TimescaleDB)
     execute "DROP MATERIALIZED VIEW IF EXISTS metrics_1h CASCADE"
     execute "DROP MATERIALIZED VIEW IF EXISTS metrics_5m CASCADE"
 
-    # Drop the metrics hypertable
+    # Drop the metrics table
     drop_if_exists table(:metrics)
 
-    # Drop TimescaleDB extension
+    # Drop TimescaleDB extension (no-op if not installed)
     execute "DROP EXTENSION IF EXISTS timescaledb CASCADE"
   end
 

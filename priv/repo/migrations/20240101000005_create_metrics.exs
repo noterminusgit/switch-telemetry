@@ -17,8 +17,8 @@ defmodule SwitchTelemetry.Repo.Migrations.CreateMetrics do
       add :value_str, :string
     end
 
-    flush()
-    execute "SELECT create_hypertable('metrics', 'time')"
+    # TimescaleDB hypertable creation removed — metrics now stored in InfluxDB.
+    # Table kept as plain PostgreSQL; dropped in 20260212000001_remove_timescaledb.exs.
 
     create index(:metrics, [:device_id, :time])
     create index(:metrics, [:device_id, :path, :time])

@@ -1,28 +1,9 @@
 defmodule SwitchTelemetry.Repo.Migrations.AddRetentionPolicies do
   use Ecto.Migration
 
-  def up do
-    execute "SELECT add_retention_policy('metrics', INTERVAL '30 days')"
+  # TimescaleDB retention policies removed — retention now configured per
+  # InfluxDB bucket at creation time. See priv/influxdb/setup.sh.
 
-    if timescaledb_community?() do
-      execute "SELECT add_retention_policy('metrics_5m', INTERVAL '180 days')"
-      execute "SELECT add_retention_policy('metrics_1h', INTERVAL '730 days')"
-    end
-  end
-
-  def down do
-    execute "SELECT remove_retention_policy('metrics')"
-
-    if timescaledb_community?() do
-      execute "SELECT remove_retention_policy('metrics_5m')"
-      execute "SELECT remove_retention_policy('metrics_1h')"
-    end
-  end
-
-  defp timescaledb_community? do
-    %{rows: [[license]]} =
-      repo().query!("SHOW timescaledb.license")
-
-    license == "timescale"
-  end
+  def up, do: :ok
+  def down, do: :ok
 end

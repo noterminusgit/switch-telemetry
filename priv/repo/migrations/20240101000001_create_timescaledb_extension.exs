@@ -6,10 +6,12 @@ defmodule SwitchTelemetry.Repo.Migrations.CreateTimescaledbExtension do
   # 20260212000001_remove_timescaledb.exs.
 
   def up do
-    execute "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE"
+    # TimescaleDB replaced by InfluxDB v2. Extension dropped in migration
+    # 20260212000001_remove_timescaledb.exs.
+    :ok
   end
 
   def down do
-    execute "DROP EXTENSION IF EXISTS timescaledb CASCADE"
+    :ok
   end
 end
