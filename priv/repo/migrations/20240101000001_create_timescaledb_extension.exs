@@ -1,12 +1,15 @@
 defmodule SwitchTelemetry.Repo.Migrations.CreateTimescaledbExtension do
   use Ecto.Migration
-  import Timescale.Migration
+
+  # Originally created TimescaleDB extension. Now a no-op since TimescaleDB
+  # has been replaced by InfluxDB. The extension is dropped in migration
+  # 20260212000001_remove_timescaledb.exs.
 
   def up do
-    create_timescaledb_extension()
+    execute "CREATE EXTENSION IF NOT EXISTS timescaledb CASCADE"
   end
 
   def down do
-    drop_timescaledb_extension()
+    execute "DROP EXTENSION IF EXISTS timescaledb CASCADE"
   end
 end

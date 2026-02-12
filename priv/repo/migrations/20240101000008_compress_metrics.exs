@@ -1,18 +1,20 @@
 defmodule SwitchTelemetry.Repo.Migrations.CompressMetrics do
   use Ecto.Migration
-  import Timescale.Migration
+
+  # Originally set up compression on the metrics hypertable. Now a no-op
+  # since metrics have been migrated to InfluxDB.
 
   def up do
     if timescaledb_community?() do
-      enable_hypertable_compression(:metrics, segment_by: "device_id, path")
-      add_compression_policy(:metrics, "7 days")
+      execute "ALTER TABLE metrics SET (timescaledb.compress, timescaledb.compress_segmentby = 'device_id, path')"
+      execute "SELECT add_compression_policy('metrics', INTERVAL '7 days')"
     end
   end
 
   def down do
     if timescaledb_community?() do
-      remove_compression_policy(:metrics)
-      disable_hypertable_compression(:metrics)
+      execute "SELECT remove_compression_policy('metrics')"
+      execute "ALTER TABLE metrics SET (timescaledb.compress = false)"
     end
   end
 

@@ -23,6 +23,16 @@ All environment variables used by Switch Telemetry in production.
 | `RELEASE_NAME` | BEAM node basename for clustering | `switch_telemetry` |
 | `CLUSTER_DNS` | DNS name for libcluster node discovery | `switch-telemetry.internal` |
 
+## InfluxDB (Required)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `INFLUXDB_HOST` | InfluxDB v2 host URL (including scheme) | `http://localhost` |
+| `INFLUXDB_PORT` | InfluxDB v2 port | `8086` |
+| `INFLUXDB_TOKEN` | InfluxDB admin/write token | (none -- required) |
+| `INFLUXDB_ORG` | InfluxDB organization name | (none -- required) |
+| `INFLUXDB_BUCKET` | InfluxDB raw metrics bucket name | `metrics_raw` |
+
 ## SMTP (Optional -- for email notifications)
 
 | Variable | Description | Default |

@@ -6,6 +6,17 @@ if System.get_env("PHX_SERVER") do
   config :switch_telemetry, SwitchTelemetryWeb.Endpoint, server: true
 end
 
+# InfluxDB configuration from environment (all environments)
+if influx_host = System.get_env("INFLUXDB_HOST") do
+  config :switch_telemetry, SwitchTelemetry.InfluxDB,
+    host: influx_host,
+    port: String.to_integer(System.get_env("INFLUXDB_PORT", "8086")),
+    token: System.get_env("INFLUXDB_TOKEN") || raise("INFLUXDB_TOKEN is required"),
+    bucket: System.get_env("INFLUXDB_BUCKET", "metrics_raw"),
+    org: System.get_env("INFLUXDB_ORG") || raise("INFLUXDB_ORG is required"),
+    version: :v2
+end
+
 if config_env() == :prod do
   database_url =
     System.get_env("DATABASE_URL") ||

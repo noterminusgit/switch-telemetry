@@ -4,7 +4,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   Uses Erlang :ssh to connect on port 830 and exchange XML RPCs.
   Periodically collects metrics via <get> RPCs with subtree filters.
-  Parses XML responses with SweetXml and inserts metrics to TimescaleDB.
+  Parses XML responses with SweetXml and inserts metrics to InfluxDB.
   """
   use GenServer
   require Logger

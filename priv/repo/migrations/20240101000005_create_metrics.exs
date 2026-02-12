@@ -1,6 +1,9 @@
 defmodule SwitchTelemetry.Repo.Migrations.CreateMetrics do
   use Ecto.Migration
-  import Timescale.Migration
+
+  # Originally created the metrics hypertable. Now a no-op since metrics
+  # have been migrated to InfluxDB. The table is dropped in migration
+  # 20260212000001_remove_timescaledb.exs.
 
   def up do
     create table(:metrics, primary_key: false) do
@@ -14,11 +17,9 @@ defmodule SwitchTelemetry.Repo.Migrations.CreateMetrics do
       add :value_str, :string
     end
 
-    # Must flush between create table and create_hypertable
     flush()
-    create_hypertable(:metrics, :time)
+    execute "SELECT create_hypertable('metrics', 'time')"
 
-    # Composite indexes -- time column must be included for hypertable performance
     create index(:metrics, [:device_id, :time])
     create index(:metrics, [:device_id, :path, :time])
   end

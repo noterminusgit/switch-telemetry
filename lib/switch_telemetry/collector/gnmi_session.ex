@@ -7,7 +7,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   2. Sends a SubscribeRequest with paths from the database
   3. Reads the bidirectional stream in a linked Task
   4. Parses gNMI Notifications into metrics
-  5. Inserts metrics to TimescaleDB and broadcasts via PubSub
+  5. Inserts metrics to InfluxDB and broadcasts via PubSub
   6. Reconnects with exponential backoff on failure
   """
   use GenServer

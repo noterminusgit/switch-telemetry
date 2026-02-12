@@ -3,7 +3,7 @@ defmodule SwitchTelemetry.Workers.AlertEvaluator do
   Oban worker that periodically evaluates all enabled alert rules.
 
   Runs every minute via the Oban Cron plugin. For each enabled rule,
-  fetches recent metrics from TimescaleDB, evaluates the rule condition
+  fetches recent metrics, evaluates the rule condition
   via `Evaluator.evaluate_rule/2`, persists state transitions, creates
   alert events, and enqueues notification delivery jobs.
   """
@@ -11,7 +11,7 @@ defmodule SwitchTelemetry.Workers.AlertEvaluator do
 
   alias SwitchTelemetry.Alerting
   alias SwitchTelemetry.Alerting.Evaluator
-  alias SwitchTelemetry.Metrics.Queries
+  alias SwitchTelemetry.Metrics
 
   @impl Oban.Worker
   def perform(_job) do
@@ -47,7 +47,7 @@ defmodule SwitchTelemetry.Workers.AlertEvaluator do
     opts = [limit: 100, minutes: minutes]
 
     if rule.device_id do
-      Queries.get_latest(rule.device_id, opts)
+      Metrics.get_latest(rule.device_id, opts)
       |> Enum.filter(&(&1.path == rule.path))
     else
       # For rules without a specific device, return empty (device-specific rules only for now)

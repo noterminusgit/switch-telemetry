@@ -1,7 +1,23 @@
 defmodule SwitchTelemetry.Metrics.QueryRouterTest do
-  use SwitchTelemetry.DataCase, async: true
+  use SwitchTelemetry.InfluxCase, async: false
 
+  alias SwitchTelemetry.Metrics
   alias SwitchTelemetry.Metrics.QueryRouter
+
+  defp build_metric(overrides) do
+    Map.merge(
+      %{
+        time: DateTime.utc_now(),
+        device_id: "dev_qr_test",
+        path: "/test/counters",
+        source: :gnmi,
+        value_float: 42.5,
+        value_int: nil,
+        value_str: nil
+      },
+      overrides
+    )
+  end
 
   describe "query/3" do
     test "returns empty list for device with no data" do
@@ -12,7 +28,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       assert result == []
     end
 
-    test "routes short ranges (< 1h) to raw table" do
+    test "routes short ranges (< 1h) to raw data" do
       now = DateTime.utc_now()
       time_range = %{start: DateTime.add(now, -1800, :second), end: now}
 
@@ -20,7 +36,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       assert is_list(result)
     end
 
-    test "routes medium ranges (1h-24h) to 5m aggregate" do
+    test "routes medium ranges (1h-24h)" do
       now = DateTime.utc_now()
       time_range = %{start: DateTime.add(now, -7200, :second), end: now}
 
@@ -28,7 +44,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       assert is_list(result)
     end
 
-    test "routes long ranges (>24h) to 1h aggregate" do
+    test "routes long ranges (>24h)" do
       now = DateTime.utc_now()
       time_range = %{start: DateTime.add(now, -172_800, :second), end: now}
 
@@ -49,18 +65,11 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
     test "returns data when metrics exist" do
       now = DateTime.utc_now()
 
-      SwitchTelemetry.Repo.insert_all("metrics", [
-        %{
-          time: now,
-          device_id: "dev_qr_test",
-          path: "/test/counters",
-          source: "gnmi",
-          tags: %{},
-          value_float: 42.5,
-          value_int: nil,
-          value_str: nil
-        }
+      Metrics.insert_batch([
+        build_metric(%{time: now, value_float: 42.5})
       ])
+
+      Process.sleep(100)
 
       time_range = %{start: DateTime.add(now, -60, :second), end: DateTime.add(now, 60, :second)}
 
@@ -81,7 +90,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
 
     test "computes rate of change from value_int counters" do
       now = DateTime.utc_now()
-      # Align to start of a minute so all points land in the same time_bucket('1 minute')
+      # Align to start of a minute so all points land in the same bucket
       minute_start =
         now
         |> DateTime.add(-120, :second)
@@ -92,38 +101,31 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       t2 = DateTime.add(minute_start, 20, :second)
       t3 = DateTime.add(minute_start, 30, :second)
 
-      SwitchTelemetry.Repo.insert_all("metrics", [
-        %{
+      Metrics.insert_batch([
+        build_metric(%{
           time: t1,
           device_id: "dev_rate_test",
           path: "/interfaces/counters/in-octets",
-          source: "gnmi",
-          tags: %{},
           value_float: nil,
-          value_int: 1000,
-          value_str: nil
-        },
-        %{
+          value_int: 1000
+        }),
+        build_metric(%{
           time: t2,
           device_id: "dev_rate_test",
           path: "/interfaces/counters/in-octets",
-          source: "gnmi",
-          tags: %{},
           value_float: nil,
-          value_int: 2000,
-          value_str: nil
-        },
-        %{
+          value_int: 2000
+        }),
+        build_metric(%{
           time: t3,
           device_id: "dev_rate_test",
           path: "/interfaces/counters/in-octets",
-          source: "gnmi",
-          tags: %{},
           value_float: nil,
-          value_int: 3500,
-          value_str: nil
-        }
+          value_int: 3500
+        })
       ])
+
+      Process.sleep(100)
 
       time_range = %{start: minute_start, end: DateTime.add(minute_start, 60, :second)}
 
@@ -160,37 +162,30 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       t1 = DateTime.add(now, -120, :second)
       t2 = DateTime.add(now, -60, :second)
 
-      SwitchTelemetry.Repo.insert_all("metrics", [
-        %{
+      Metrics.insert_batch([
+        build_metric(%{
           time: t1,
           device_id: "dev_routing_test",
           path: "/cpu/utilization",
-          source: "gnmi",
-          tags: %{},
-          value_float: 55.0,
-          value_int: nil,
-          value_str: nil
-        },
-        %{
+          value_float: 55.0
+        }),
+        build_metric(%{
           time: t2,
           device_id: "dev_routing_test",
           path: "/cpu/utilization",
-          source: "gnmi",
-          tags: %{},
-          value_float: 65.0,
-          value_int: nil,
-          value_str: nil
-        }
+          value_float: 65.0
+        })
       ])
 
-      # Short range (< 1h) routes to raw table
+      Process.sleep(100)
+
+      # Short range (< 1h) routes to raw data
       time_range = %{start: DateTime.add(now, -300, :second), end: now}
       result = QueryRouter.query("dev_routing_test", "/cpu/utilization", time_range)
 
       assert is_list(result)
       assert length(result) >= 1
 
-      # Verify aggregation structure
       first = hd(result)
       assert Map.has_key?(first, :bucket)
       assert Map.has_key?(first, :avg_value)
@@ -201,28 +196,12 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
       now = DateTime.utc_now()
       t1 = DateTime.add(now, -30, :second)
 
-      SwitchTelemetry.Repo.insert_all("metrics", [
-        %{
-          time: t1,
-          device_id: "dev_filter_a",
-          path: "/cpu",
-          source: "gnmi",
-          tags: %{},
-          value_float: 10.0,
-          value_int: nil,
-          value_str: nil
-        },
-        %{
-          time: t1,
-          device_id: "dev_filter_b",
-          path: "/cpu",
-          source: "gnmi",
-          tags: %{},
-          value_float: 90.0,
-          value_int: nil,
-          value_str: nil
-        }
+      Metrics.insert_batch([
+        build_metric(%{time: t1, device_id: "dev_filter_a", path: "/cpu", value_float: 10.0}),
+        build_metric(%{time: t1, device_id: "dev_filter_b", path: "/cpu", value_float: 90.0})
       ])
+
+      Process.sleep(100)
 
       time_range = %{start: DateTime.add(now, -60, :second), end: now}
 

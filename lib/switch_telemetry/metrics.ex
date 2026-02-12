@@ -1,32 +1,36 @@
 defmodule SwitchTelemetry.Metrics do
   @moduledoc """
   Context for telemetry metrics ingestion and retrieval.
+  Delegates to the configured backend (InfluxDB).
   """
-  alias SwitchTelemetry.Repo
-  alias SwitchTelemetry.Metrics.Queries
-
-  defdelegate get_latest(device_id, opts \\ []), to: Queries
-  defdelegate get_time_series(device_id, path, bucket_size, time_range), to: Queries
 
   @doc """
   Insert a batch of metric data points.
   Expects a list of maps with keys: time, device_id, path, source, tags, value_float, value_int, value_str.
   """
   def insert_batch(metrics) when is_list(metrics) do
-    entries =
-      Enum.map(metrics, fn m ->
-        %{
-          time: m.time,
-          device_id: m.device_id,
-          path: m.path,
-          source: to_string(m.source),
-          tags: m[:tags] || %{},
-          value_float: m[:value_float],
-          value_int: m[:value_int],
-          value_str: m[:value_str]
-        }
-      end)
+    backend().insert_batch(metrics)
+  end
 
-    Repo.insert_all("metrics", entries)
+  @doc """
+  Get the most recent metrics for a device.
+  """
+  def get_latest(device_id, opts \\ []) do
+    backend().get_latest(device_id, opts)
+  end
+
+  @doc """
+  Get time-bucketed aggregation for a device and path.
+  """
+  def get_time_series(device_id, path, bucket_size, time_range) do
+    backend().query_raw(device_id, path, bucket_size, time_range)
+  end
+
+  defp backend do
+    Application.get_env(
+      :switch_telemetry,
+      :metrics_backend,
+      SwitchTelemetry.Metrics.InfluxBackend
+    )
   end
 end

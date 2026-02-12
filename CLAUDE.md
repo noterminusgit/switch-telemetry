@@ -2,11 +2,11 @@
 
 ## Project Context
 
-Switch Telemetry is a distributed network telemetry platform. Collector nodes connect to network devices via gNMI (gRPC) and NETCONF (SSH) to gather metrics. Web nodes serve Phoenix LiveView dashboards with VegaLite/Tucan interactive charts. TimescaleDB stores all time-series data. All nodes form a single BEAM cluster.
+Switch Telemetry is a distributed network telemetry platform. Collector nodes connect to network devices via gNMI (gRPC) and NETCONF (SSH) to gather metrics. Web nodes serve Phoenix LiveView dashboards with VegaLite/Tucan interactive charts. InfluxDB v2 stores all time-series metrics data; PostgreSQL stores relational data (devices, dashboards, users, alerts). All nodes form a single BEAM cluster.
 
 ## Key Architectural Decisions
 
-1. **TimescaleDB over InfluxDB/ClickHouse** -- PostgreSQL compatibility means standard Ecto/Postgrex works. The `timescale` hex package provides migration helpers and hyperfunctions. No need for a separate database driver. Reads ARE real-time (it's just PostgreSQL); continuous aggregates provide pre-computed rollups.
+1. **InfluxDB v2 for time-series, PostgreSQL for relational** -- InfluxDB handles all metric ingestion and querying via Flux. PostgreSQL (standard Ecto/Postgrex) stores device inventory, dashboards, users, alerts, and Oban jobs. The `instream` hex package provides the Elixir client. Downsampling is handled by InfluxDB Flux tasks (5m and 1h aggregation buckets).
 
 2. **Two release types, one codebase** -- `mix release collector` and `mix release web` produce different binaries from the same source. The `NODE_ROLE` environment variable controls which supervision children start.
 
@@ -20,13 +20,13 @@ Switch Telemetry is a distributed network telemetry platform. Collector nodes co
 
 7. **Horde for distributed device sessions** -- Each device session is globally unique across the cluster. Horde.DynamicSupervisor starts sessions on collector nodes. Horde.Registry provides cluster-wide name resolution. If a collector crashes, Horde restarts sessions on surviving nodes.
 
-8. **Medium table layout for telemetry** -- A single `metrics` hypertable with typed value columns (`value_float`, `value_int`, `value_str`). Tagged by `device_id`, `path`, `source`. This balances flexibility (new metric types without schema changes) with query performance.
+8. **Metrics backend abstraction** -- A `SwitchTelemetry.Metrics.Backend` behaviour defines `insert_batch/1`, `get_latest/2`, `query/3`, `query_raw/4`, `query_rate/4`. The active backend is configured via `:metrics_backend` app env. `InfluxBackend` is the production implementation. Metrics are tagged by `device_id`, `path`, `source` with typed value fields (`value_float`, `value_int`, `value_str`).
 
 ## Code Conventions
 
 ### Naming
 - Modules: `SwitchTelemetry.Collector.GnmiSession`, `SwitchTelemetry.Collector.NetconfSession`
-- Schemas: `SwitchTelemetry.Metrics.Metric`, `SwitchTelemetry.Devices.Device`
+- Schemas: `SwitchTelemetry.Devices.Device`
 - LiveView: `SwitchTelemetryWeb.DashboardLive`, `SwitchTelemetryWeb.DeviceLive`
 - Workers: `SwitchTelemetry.Workers.DeviceDiscovery`
 
@@ -41,12 +41,13 @@ lib/
     devices/            # Device inventory context
       device.ex         # Ecto schema
     metrics/            # Telemetry data context
-      metric.ex         # Ecto schema (hypertable)
-      queries.ex        # TimescaleDB-specific queries (time_bucket, etc.)
+      backend.ex        # Behaviour for metrics backends
+      influx_backend.ex # InfluxDB v2 implementation
     dashboards/         # User dashboard configuration context
       dashboard.ex      # Ecto schema
       widget.ex         # Dashboard widget configuration
     workers/            # Oban workers
+    influx_db.ex        # Instream connection module
   switch_telemetry_web/
     live/               # LiveView modules
       dashboard_live.ex
@@ -58,7 +59,8 @@ lib/
 ### Testing
 - Use `ExUnit` with `async: true` where possible
 - Mock external device connections with `Mox`
-- Use `Ecto.Adapters.SQL.Sandbox` for database tests
+- Use `Ecto.Adapters.SQL.Sandbox` for PostgreSQL tests
+- Use `SwitchTelemetry.InfluxCase` for InfluxDB integration tests (`async: false`)
 - Property-based tests with `StreamData` for protocol parsing
 
 ## Common Mistakes
@@ -71,7 +73,7 @@ def handle_info(:collect, %{device: device} = state) do
   {:noreply, %{state | last_metrics: metrics}}
 end
 
-# ✅ DO: Write to TimescaleDB AND broadcast via PubSub
+# ✅ DO: Write to InfluxDB AND broadcast via PubSub
 def handle_info(:collect, %{device: device} = state) do
   with {:ok, metrics} <- collect_from_device(device) do
     SwitchTelemetry.Metrics.insert_batch(device.id, metrics)
@@ -82,9 +84,9 @@ end
 ```
 
 ```elixir
-# ❌ DON'T: Query TimescaleDB in a tight loop from LiveView
+# ❌ DON'T: Query InfluxDB in a tight loop from LiveView
 def handle_info(:tick, socket) do
-  metrics = Repo.all(from m in Metric, where: m.device_id == ^id, order_by: [desc: :time], limit: 100)
+  metrics = Metrics.get_latest(id, limit: 100)
   {:noreply, assign(socket, metrics: metrics)}
 end
 

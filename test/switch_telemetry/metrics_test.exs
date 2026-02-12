@@ -1,5 +1,5 @@
 defmodule SwitchTelemetry.MetricsTest do
-  use SwitchTelemetry.DataCase, async: true
+  use SwitchTelemetry.InfluxCase, async: false
 
   alias SwitchTelemetry.Metrics
 
@@ -64,6 +64,9 @@ defmodule SwitchTelemetry.MetricsTest do
         build_metric(%{time: now, value_float: 20.0})
       ])
 
+      # Allow InfluxDB to index the data
+      Process.sleep(100)
+
       results = Metrics.get_latest("dev_metrics_test")
       assert length(results) == 2
       # Most recent first
@@ -79,6 +82,7 @@ defmodule SwitchTelemetry.MetricsTest do
         end
 
       Metrics.insert_batch(metrics)
+      Process.sleep(100)
 
       results = Metrics.get_latest("dev_metrics_test", limit: 3)
       assert length(results) == 3
@@ -93,6 +97,8 @@ defmodule SwitchTelemetry.MetricsTest do
         build_metric(%{time: recent, value_float: 1.0}),
         build_metric(%{time: old, value_float: 2.0})
       ])
+
+      Process.sleep(100)
 
       results = Metrics.get_latest("dev_metrics_test", minutes: 2)
       assert length(results) == 1
@@ -117,12 +123,13 @@ defmodule SwitchTelemetry.MetricsTest do
         build_metric(%{time: t3, device_id: "dev_ts", path: "/cpu", value_float: 30.0})
       ])
 
+      Process.sleep(100)
+
       time_range = %{start: DateTime.add(now, -300, :second), end: now}
       results = Metrics.get_time_series("dev_ts", "/cpu", "1 minute", time_range)
 
       assert is_list(results)
       assert length(results) >= 1
-      # Each result should have the aggregation keys
       first = hd(results)
       assert Map.has_key?(first, :bucket)
       assert Map.has_key?(first, :avg_value)

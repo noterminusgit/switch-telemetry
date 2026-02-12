@@ -65,4 +65,16 @@ config :switch_telemetry, SwitchTelemetry.Vault,
        tag: "AES.GCM.V1", key: Base.decode64!("dVFyaWZSNk5hNjRSTmRaUE1UY3dRV2RzNGtHQTZPalk=")}
   ]
 
+# InfluxDB connection for time-series metrics
+config :switch_telemetry, SwitchTelemetry.InfluxDB,
+  host: "http://localhost",
+  port: 8086,
+  token: "dev-token",
+  bucket: "metrics_raw",
+  org: "switch-telemetry",
+  version: :v2
+
+# Metrics backend module
+config :switch_telemetry, :metrics_backend, SwitchTelemetry.Metrics.InfluxBackend
+
 import_config "#{config_env()}.exs"

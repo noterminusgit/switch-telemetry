@@ -1,52 +1,53 @@
-# ADR-001: TimescaleDB for Time-Series Storage
+# ADR-001: Time-Series Database
 
-**Status:** Accepted
-**Date:** 2026-02-10
+**Status:** Superseded
+**Date:** 2026-02-10 (original), 2026-02-12 (superseded)
+
+## Original Decision (Superseded)
+
+Use TimescaleDB (PostgreSQL extension) as the primary time-series store.
+
+## Revised Decision
+
+Use **InfluxDB v2** for time-series metrics storage, keeping **PostgreSQL** (without TimescaleDB) for relational data.
 
 ## Context
 
-We need a database to store billions of telemetry data points from thousands of network devices. Requirements: high ingestion rate (100k+ metrics/sec), efficient time-range queries, data retention policies, and compatibility with the Elixir/Ecto ecosystem.
+TimescaleDB's Apache-only license on self-hosted installations restricts key features:
+- Compression policies
+- Continuous aggregates
+- Advanced retention policies
 
-## Decision
-
-Use **TimescaleDB** (PostgreSQL extension) as the primary time-series store.
+These features require the TimescaleDB Community (non-Apache) license, which introduced deployment friction and migration failures. Rather than managing license constraints, we migrated the time-series layer to InfluxDB v2, which is fully open source for self-hosted use.
 
 ## Rationale
 
-- **Ecto compatibility**: TimescaleDB is PostgreSQL. Standard `Ecto.Repo`, `Postgrex`, and `Ecto.Migration` work out of the box. No custom database adapter needed.
-- **`timescale` hex package**: Provides `create_hypertable/2`, `time_bucket/2`, compression helpers, and hyperfunctions directly in Ecto queries.
-- **Continuous aggregates**: Materialized views that auto-refresh, giving us pre-computed 5-minute and 1-hour rollups without application-level aggregation.
-- **Compression**: 10:1+ compression for data older than 7 days, drastically reducing storage costs.
-- **Retention policies**: Built-in `add_retention_policy` drops old chunks automatically.
-- **SQL**: Full SQL power for ad-hoc queries, JOINs with device metadata, and complex analytics.
-- **Single database**: Device inventory, dashboard configs, and metrics all live in one PostgreSQL instance. No operational overhead of managing a separate TSDB.
+- **No license restrictions**: InfluxDB OSS v2 includes all features (retention, downsampling, Flux tasks) without license gates.
+- **Purpose-built for metrics**: Native time-series optimizations, line protocol for high-throughput writes, Flux query language for aggregation.
+- **Mature Elixir client**: `instream` hex package provides full InfluxDB v2 support (line protocol writes, Flux queries).
+- **Built-in downsampling**: Flux tasks replace TimescaleDB continuous aggregates. Configured in `priv/influxdb/tasks/`.
+- **Bucket retention**: Native per-bucket retention policies replace TimescaleDB `add_retention_policy`.
+- **PostgreSQL stays simple**: Removing the TimescaleDB extension means standard PostgreSQL can be used on any managed service.
 
-## Alternatives Considered
+## Architecture
 
-### InfluxDB
-**Pros**: Purpose-built for metrics, excellent write performance, Flux query language.
-**Cons**: No Ecto adapter. Requires a separate database and driver (`instream` hex package). Separate query language to learn. Cardinality issues with high-tag-count data (fixed in v3, but v3 has limited Elixir support).
-**Rejected**: Added operational complexity of a second database with no Ecto integration.
+```
+Collectors → InfluxDB v2 (metrics_raw, metrics_5m, metrics_1h buckets)
+           → PostgreSQL (devices, dashboards, users, alerts, Oban jobs)
+```
 
-### ClickHouse
-**Pros**: Blazing fast analytics (2-3M points/sec ingestion), 10-30:1 compression, great for OLAP queries.
-**Cons**: `ecto_ch` adapter exists but is less mature. No UPDATE support. Not ideal for the relational data (devices, dashboards) we also need to store. Overkill for our scale.
-**Rejected**: We'd need both PostgreSQL (for relational data) AND ClickHouse (for metrics), doubling infrastructure.
-
-### Plain PostgreSQL (no TimescaleDB)
-**Pros**: Simplest setup, no extension to install.
-**Cons**: No automatic partitioning, no built-in compression, no continuous aggregates, no retention policies. Query performance degrades severely beyond ~100M rows.
-**Rejected**: We'll exceed 100M rows within weeks at scale.
+A `SwitchTelemetry.Metrics.Backend` behaviour provides the abstraction layer. The `InfluxBackend` module implements all metrics operations using Flux queries.
 
 ## Consequences
 
 ### Positive
-- Single database technology to operate and back up
-- Familiar SQL for all queries
-- Ecto integration means we use the same tools as the rest of the app
-- Continuous aggregates solve the "are reads real-time?" concern elegantly
+- No license friction for self-hosted deployments
+- PostgreSQL deployable on any managed service (no extension requirement)
+- Cleaner separation: relational data in PostgreSQL, time-series in InfluxDB
+- InfluxDB purpose-built query optimizations for time-series workloads
 
 ### Negative
-- TimescaleDB extension must be installed on PostgreSQL (not available on all managed PG services, but available on Timescale Cloud, Aiven, AWS RDS with community AMI)
-- Some advanced features (e.g., continuous aggregates with JOINs) require raw SQL `execute()` in migrations
-- Horizontal write scaling requires TimescaleDB multi-node (more complex setup)
+- Two databases to operate and back up (PostgreSQL + InfluxDB)
+- Flux query language is a new syntax to learn (vs SQL)
+- No JOINs between metrics and relational data (must query separately)
+- InfluxDB v2 cardinality limits need monitoring for high-tag-count scenarios

@@ -39,7 +39,7 @@ defmodule SwitchTelemetry.MixProject do
       # Database
       {:ecto_sql, "~> 3.12"},
       {:postgrex, ">= 0.0.0"},
-      {:timescale, "~> 0.1"},
+      {:instream, "~> 2.2"},
 
       # Charting
       {:vega_lite, "~> 0.1"},

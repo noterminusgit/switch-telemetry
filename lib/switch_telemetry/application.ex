@@ -25,6 +25,7 @@ defmodule SwitchTelemetry.Application do
   defp common_children do
     [
       SwitchTelemetry.Repo,
+      SwitchTelemetry.InfluxDB,
       SwitchTelemetry.Vault,
       {Phoenix.PubSub, name: SwitchTelemetry.PubSub},
       {Horde.Registry, name: SwitchTelemetry.DistributedRegistry, keys: :unique, members: :auto},

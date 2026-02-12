@@ -23,6 +23,15 @@ config :switch_telemetry, SwitchTelemetry.Mailer, adapter: Swoosh.Adapters.Test
 
 config :swoosh, :api_client, false
 
+# InfluxDB test config
+config :switch_telemetry, SwitchTelemetry.InfluxDB,
+  host: "http://localhost",
+  port: 8086,
+  token: "test-token",
+  bucket: "metrics_test",
+  org: "switch-telemetry",
+  version: :v2
+
 config :switch_telemetry, SwitchTelemetry.Vault,
   ciphers: [
     default:
