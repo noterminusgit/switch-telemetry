@@ -28,10 +28,14 @@ defmodule SwitchTelemetry.Metrics.QueryRouter do
         query_raw(device_id, path, "10 seconds", time_range)
 
       duration_seconds <= 86_400 ->
-        query_aggregate("metrics_5m", device_id, path, time_range)
+        if aggregate_exists?("metrics_5m"),
+          do: query_aggregate("metrics_5m", device_id, path, time_range),
+          else: query_raw(device_id, path, "5 minutes", time_range)
 
       true ->
-        query_aggregate("metrics_1h", device_id, path, time_range)
+        if aggregate_exists?("metrics_1h"),
+          do: query_aggregate("metrics_1h", device_id, path, time_range),
+          else: query_raw(device_id, path, "1 hour", time_range)
     end
   end
 
@@ -130,4 +134,14 @@ defmodule SwitchTelemetry.Metrics.QueryRouter do
 
   defp safe_column_to_atom(col),
     do: raise(ArgumentError, "unexpected column name from SQL query: #{col}")
+
+  defp aggregate_exists?(view_name) do
+    %{rows: [[exists]]} =
+      Repo.query!(
+        "SELECT EXISTS (SELECT 1 FROM pg_class WHERE relname = $1 AND relkind = 'm')",
+        [view_name]
+      )
+
+    exists
+  end
 end
