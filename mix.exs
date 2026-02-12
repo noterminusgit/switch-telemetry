@@ -44,6 +44,7 @@ defmodule SwitchTelemetry.MixProject do
       # Charting
       {:vega_lite, "~> 0.1"},
       {:tucan, "~> 0.5"},
+      {:vega_lite_convert, "~> 1.0"},
 
       # Protocols
       {:grpc, "~> 0.9"},
