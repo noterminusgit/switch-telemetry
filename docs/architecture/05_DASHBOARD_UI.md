@@ -63,7 +63,7 @@ Users create dashboards composed of widgets. Each widget defines:
  │                                                             │
  │  1. Load dashboard config from DB                          │
  │  2. For each widget:                                       │
- │     a. Query TimescaleDB for initial historical data       │
+ │     a. Query InfluxDB for initial historical data          │
  │     b. Subscribe to PubSub for real-time updates           │
  │  3. Build VegaLite specs from data (via Tucan)             │
  │  4. Push specs to browser via push_event/3                 │
@@ -74,8 +74,8 @@ Users create dashboards composed of widgets. Each widget defines:
  │     → push updated spec to Vega hook                       │
  │                                                             │
  │  handle_event("change_time_range", ...)                    │
- │     → re-query TimescaleDB for new range                   │
- │     → choose raw table vs continuous aggregate based on    │
+ │     → re-query InfluxDB for new range                      │
+ │     → choose raw bucket vs downsampled bucket based on     │
  │       range duration                                       │
  │                                                             │
  │  handle_event("add_widget", ...)                           │
@@ -411,40 +411,41 @@ end
 
 Limit chart data to prevent browser memory issues:
 - Keep at most 500-1000 data points per series in the browser
-- For longer ranges, use TimescaleDB continuous aggregates to pre-aggregate
+- For longer ranges, use InfluxDB downsampled buckets (metrics_5m, metrics_1h)
 - Trim old points when appending new ones
 
 ## Intelligent Query Routing
 
-Based on the requested time range, route to the most efficient data source:
+Based on the requested time range, route to the most efficient InfluxDB bucket:
 
 ```elixir
 defmodule SwitchTelemetry.Metrics.QueryRouter do
   @moduledoc """
-  Routes metric queries to the most efficient data source:
-  - Raw hypertable for short ranges (< 1 hour)
-  - 5-minute continuous aggregate for medium ranges (1h - 24h)
-  - 1-hour continuous aggregate for long ranges (> 24h)
+  Routes metric queries to the most efficient InfluxDB bucket:
+  - metrics_raw bucket for short ranges (< 1 hour)
+  - metrics_5m bucket for medium ranges (1h - 24h)
+  - metrics_1h bucket for long ranges (> 24h)
+
+  Delegates to the configured metrics backend (InfluxBackend).
   """
 
   def query(device_id, path, time_range) do
-    duration_seconds = DateTime.diff(time_range.end, time_range.start)
+    backend().query(device_id, path, time_range)
+  end
 
-    cond do
-      duration_seconds <= 3600 ->
-        # Last hour: query raw data, 10-second buckets
-        query_raw(device_id, path, "10 seconds", time_range)
+  def query_raw(device_id, path, bucket_size, time_range) do
+    backend().query_raw(device_id, path, bucket_size, time_range)
+  end
 
-      duration_seconds <= 86400 ->
-        # Last day: query 5-minute aggregate
-        query_aggregate("metrics_5m", device_id, path, time_range)
+  def query_rate(device_id, path, bucket_size, time_range) do
+    backend().query_rate(device_id, path, bucket_size, time_range)
+  end
 
-      true ->
-        # Longer: query 1-hour aggregate
-        query_aggregate("metrics_1h", device_id, path, time_range)
-    end
+  defp backend do
+    Application.get_env(:switch_telemetry, :metrics_backend,
+      SwitchTelemetry.Metrics.InfluxBackend)
   end
 end
 ```
 
-This ensures dashboards remain fast regardless of the time window the user selects.
+The InfluxBackend internally selects the appropriate bucket and uses Flux `aggregateWindow()` for raw data or queries pre-aggregated downsampled buckets. This ensures dashboards remain fast regardless of the time window the user selects.

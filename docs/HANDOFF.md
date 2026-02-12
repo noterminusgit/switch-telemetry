@@ -3,8 +3,8 @@
 ## Project Status
 
 **Location**: `/home/dude/switch-telemetry/`
-**State**: Phases 1-4 complete. 74 tests passing, zero warnings.
-**Ready for**: Phase 5 implementation (Alerting & Notifications).
+**State**: Phases 1-9 complete. 527 tests passing, zero warnings, CI green.
+**Ready for**: Next feature development.
 
 ## Documentation Index
 
@@ -14,12 +14,13 @@
 | `CLAUDE.md` | AI agent context, code conventions, common mistakes |
 | `docs/architecture/00_SYSTEM_OVERVIEW.md` | Vision, component diagram, data flow, TSDB real-time answer |
 | `docs/architecture/01_DOMAIN_MODEL.md` | Entities (Device, Metric, Subscription, Dashboard, Widget, Credential) |
-| `docs/architecture/02_DATA_LAYER.md` | TimescaleDB migrations, schemas, query patterns, indexing |
+| `docs/architecture/02_DATA_LAYER.md` | InfluxDB v2 buckets, Flux queries, Instream client, backend abstraction |
 | `docs/architecture/03_COLLECTOR_PROTOCOLS.md` | gNMI and NETCONF client implementations |
 | `docs/architecture/04_DISTRIBUTED_ARCHITECTURE.md` | Node separation, Mix releases, clustering, device assignment |
 | `docs/architecture/05_DASHBOARD_UI.md` | VegaLite/Tucan charts, LiveView dashboards, query routing |
 | `docs/architecture/06_LIFECYCLE.md` | Supervision tree, GenServer rules, failover, telemetry |
-| `docs/decisions/ADR-001-timeseries-database.md` | TimescaleDB vs InfluxDB vs ClickHouse |
+| `docs/decisions/ADR-001-timeseries-database.md` | InfluxDB v2 (superseded original TimescaleDB decision) |
+| `docs/decisions/ADR-005-influxdb-migration.md` | Migration from TimescaleDB to InfluxDB v2 |
 | `docs/decisions/ADR-002-node-separation.md` | Collector vs Web node types |
 | `docs/decisions/ADR-003-charting-library.md` | VegaLite/Tucan vs Plox vs Contex |
 | `docs/decisions/ADR-004-protocol-clients.md` | Custom gNMI/NETCONF clients |
@@ -37,9 +38,9 @@
 
 ### Phase 1: Foundation (Week 1-2) -- COMPLETE
 - `mix phx.new switch_telemetry --no-mailer --no-dashboard`
-- Add dependencies (timescale, grpc, protobuf, sweet_xml, vega_lite, tucan, horde, libcluster, oban)
+- Add dependencies (instream, grpc, protobuf, sweet_xml, vega_lite, tucan, horde, libcluster, oban)
 - Install npm packages in assets/ (vega, vega-lite, vega-embed)
-- Create Ecto schemas and migrations (devices, metrics hypertable, credentials, dashboards, widgets)
+- Create Ecto schemas and migrations (devices, credentials, dashboards, widgets) + InfluxDB bucket setup
 - Configure dual Mix releases (collector + web)
 - Set up conditional supervision tree with NODE_ROLE
 
@@ -57,7 +58,7 @@
 - TelemetryChart LiveComponent wrapping VegaLite/Tucan with VegaLiteHook
 - LiveView with PubSub subscriptions for real-time updates
 - QueryRouter for intelligent data source selection
-- Continuous aggregate migrations
+- InfluxDB Flux task configuration (5m and 1h downsampling)
 
 ### Phase 4: Distribution & Scale (Week 7-8) -- COMPLETE
 - libcluster configuration for BEAM clustering
@@ -67,40 +68,31 @@
 - Docker/Kubernetes deployment manifests
 - Load testing with simulated devices
 
-### Phase 5: Alerting & Notifications (Week 9-10)
-- Alert rules: threshold-based conditions on metric paths (above, below, absent, rate_increase)
-- Alert events: immutable log of every state change (firing, resolved, acknowledged)
-- Notification channels: webhook, Slack, email (Swoosh)
-- AlertEvaluator Oban worker: periodic rule evaluation against recent metrics
-- AlertNotifier Oban worker: async dispatch per (event, channel) pair
-- AlertLive: manage rules, view active alerts, event history, channel configuration
-- Real-time alert badges on dashboard header and device pages via PubSub
-- New deps: Finch (HTTP client), Swoosh (email)
-- Design: `docs/design/phase-5-alerting.md`
-- Plan: `docs/plans/phase-5-alerting.md`
+### Phase 5: Alerting & Notifications (Week 9-10) -- COMPLETE
+- Alert rules, events, notification channels, channel bindings
+- AlertEvaluator, AlertNotifier, AlertEventPruner Oban workers
+- AlertLive with real-time PubSub updates
+- New deps: Finch, Swoosh
 
-### Phase 6: Authentication & Authorization (Week 11-12)
-- User accounts with session-based auth (phx.gen.auth pattern)
-- Three roles: admin, operator, viewer with permission matrix
-- Dashboard ownership (created_by field)
-- Role-gated routes: viewers read-only, operators manage devices/alerts/own dashboards, admins manage all
-- User management UI (admin only)
-- User settings (change email/password)
-- Login rate limiting
-- New deps: bcrypt_elixir
-- Design: `docs/design/phase-6-auth.md`
+### Phase 6: Authentication & Authorization (Week 11-12) -- COMPLETE
+- User/UserToken schemas, session-based auth, remember-me cookie
+- Role-based authorization (admin/operator/viewer)
+- Dashboard/AlertRule ownership via created_by FK
+- Login UI, UserLive.Settings, admin UserLive.Index
 
-### Phase 7: Security Audit (Week 13-14)
-- Credential encryption: wire up Cloak Vault, encrypt device credentials at rest
-- Input validation: review all changesets, raw SQL, atom creation, string lengths
-- Transport security: force_ssl, HSTS, secure cookies, TLS verification
-- Content Security Policy: CSP headers (document Vega unsafe-eval requirement)
-- Secrets management: audit env vars, signing salts, .gitignore patterns
-- Dependency audit: mix hex.audit, npm audit, update vulnerable deps
-- Logging security: redact credentials/tokens from logs, filter sensitive params
-- BEAM security: distribution cookie, firewall docs, catch-all handle_info clauses
-- Deliverables: audit checklist, production hardening guide, env var documentation
-- Design: `docs/design/phase-7-security-audit.md`
+### Phase 7: Security Audit (Week 13-14) -- COMPLETE
+- Cloak Vault for credential encryption at rest (AES-256-GCM)
+- Input validation, CSP headers, force_ssl, HSTS
+- filter_parameters for log redaction
+- docs/security/: ENV_VARS.md, PRODUCTION_HARDENING.md, AUDIT_CHECKLIST.md
+
+### Phase 8-9: InfluxDB Migration -- COMPLETE
+- Migrated time-series metrics from TimescaleDB to InfluxDB v2
+- Created Backend behaviour + InfluxBackend implementation
+- Instream client with Flux queries (raw, aggregated, rate)
+- InfluxDB bucket setup scripts + Flux downsampling tasks
+- Removed TimescaleDB extension dependency
+- PostgreSQL retained for all relational data
 
 ## Key Hex Dependencies
 
@@ -116,7 +108,7 @@ defp deps do
     # Database
     {:ecto_sql, "~> 3.12"},
     {:postgrex, ">= 0.0.0"},
-    {:timescale, "~> 0.1"},
+    {:instream, "~> 2.2"},
 
     # Protocols
     {:grpc, "~> 0.11"},
@@ -142,8 +134,11 @@ end
 
 ## Next Steps
 
-Implementor should begin Phase 5 (Alerting & Notifications):
-1. Read design: `docs/design/phase-5-alerting.md`
-2. Read plan: `docs/plans/phase-5-alerting.md`
-3. Execute tasks in group order (Groups 1-6, 15 tasks total)
-4. TDD: write tests first, then implementation
+All core phases (1-9) are complete. 527 tests passing, zero warnings, CI green.
+
+Potential next areas:
+1. SNMP collector support
+2. API key authentication for programmatic access
+3. Dashboard sharing and export
+4. Grafana-style template variables
+5. Performance optimization and load testing

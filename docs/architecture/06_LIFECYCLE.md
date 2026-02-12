@@ -41,7 +41,7 @@ GenServers are used for **infrastructure** processes, NOT for domain entities.
 
 ### Prohibited GenServer Uses
 
-- **Do NOT** store metric data in GenServer state (write to TimescaleDB)
+- **Do NOT** store metric data in GenServer state (write to InfluxDB)
 - **Do NOT** store dashboard configs in GenServer state (query from PostgreSQL)
 - **Do NOT** cache device inventory in GenServer state long-term (query from PostgreSQL, use ETS for short-lived cache if needed)
 

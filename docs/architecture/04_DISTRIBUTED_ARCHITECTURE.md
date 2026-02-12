@@ -222,40 +222,63 @@ When a collector node joins or leaves, only ~1/N of devices need to be reassigne
 ```yaml
 services:
   db:
-    image: timescale/timescaledb:latest-pg16
+    image: postgres:18
     environment:
       POSTGRES_DB: switch_telemetry_dev
       POSTGRES_PASSWORD: postgres
     ports: ["5432:5432"]
+
+  influxdb:
+    image: influxdb:2.7
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: password123
+      DOCKER_INFLUXDB_INIT_ORG: switch-telemetry
+      DOCKER_INFLUXDB_INIT_BUCKET: metrics_raw
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: dev-token
+    ports: ["8086:8086"]
 
   collector1:
     build: {context: ., args: {RELEASE_TYPE: collector}}
     environment:
       NODE_ROLE: collector
       DATABASE_URL: ecto://postgres:postgres@db/switch_telemetry_dev
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_TOKEN: dev-token
+      INFLUXDB_ORG: switch-telemetry
+      INFLUXDB_BUCKET: metrics_raw
       RELEASE_NODE: collector1@collector1
       CLUSTER_DNS: switch-telemetry.internal
-    depends_on: [db]
+    depends_on: [db, influxdb]
 
   collector2:
     build: {context: ., args: {RELEASE_TYPE: collector}}
     environment:
       NODE_ROLE: collector
       DATABASE_URL: ecto://postgres:postgres@db/switch_telemetry_dev
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_TOKEN: dev-token
+      INFLUXDB_ORG: switch-telemetry
+      INFLUXDB_BUCKET: metrics_raw
       RELEASE_NODE: collector2@collector2
       CLUSTER_DNS: switch-telemetry.internal
-    depends_on: [db]
+    depends_on: [db, influxdb]
 
   web:
     build: {context: ., args: {RELEASE_TYPE: web}}
     environment:
       NODE_ROLE: web
       DATABASE_URL: ecto://postgres:postgres@db/switch_telemetry_dev
+      INFLUXDB_HOST: influxdb
+      INFLUXDB_TOKEN: dev-token
+      INFLUXDB_ORG: switch-telemetry
+      INFLUXDB_BUCKET: metrics_raw
       RELEASE_NODE: web1@web
       CLUSTER_DNS: switch-telemetry.internal
       SECRET_KEY_BASE: <generate-with-mix-phx-gen-secret>
     ports: ["4000:4000"]
-    depends_on: [db]
+    depends_on: [db, influxdb]
 ```
 
 ### Kubernetes (Production)

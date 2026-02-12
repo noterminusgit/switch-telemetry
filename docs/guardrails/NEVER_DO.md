@@ -7,25 +7,25 @@ def handle_info({:metrics, data}, state) do
   {:noreply, %{state | metrics_cache: [data | state.metrics_cache]}}
 end
 
-# ✅ ALWAYS: Write to TimescaleDB, broadcast via PubSub
+# ✅ ALWAYS: Write to InfluxDB, broadcast via PubSub
 def handle_info({:metrics, data}, state) do
   Metrics.insert_batch(data)
   Phoenix.PubSub.broadcast(PubSub, "device:#{state.device_id}", {:metrics, data})
   {:noreply, state}
 end
 ```
-**Why**: Process crashes lose all in-memory data. TimescaleDB is the source of truth.
+**Why**: Process crashes lose all in-memory data. InfluxDB (metrics) and PostgreSQL (relational) are the sources of truth.
 
-## 2. Never Query TimescaleDB in a Tight Loop from LiveView
+## 2. Never Query InfluxDB in a Tight Loop from LiveView
 ```elixir
 # ❌ NEVER: Polling the database every second
 :timer.send_interval(1000, :refresh)
 def handle_info(:refresh, socket) do
-  data = Repo.all(from m in Metric, where: m.device_id == ^id, limit: 100)
+  data = Metrics.get_latest(id, limit: 100)
   {:noreply, assign(socket, data: data)}
 end
 
-# ✅ ALWAYS: Subscribe to PubSub, query DB only on mount and range changes
+# ✅ ALWAYS: Subscribe to PubSub, query InfluxDB only on mount and range changes
 Phoenix.PubSub.subscribe(PubSub, "device:#{id}")
 ```
 **Why**: PubSub delivers real-time data with zero DB load. Polling creates N*M queries (N dashboards * M widgets).
@@ -52,15 +52,15 @@ credential = Devices.get_credential!(device.credentials_id)
 ```
 **Why**: Credentials in source code are a security vulnerability. Use Cloak.Ecto for at-rest encryption.
 
-## 5. Never Create Indexes Without the Time Column on Hypertables
+## 5. Never Query InfluxDB Without a Time Range
 ```elixir
-# ❌ NEVER: Index without time column
-create index(:metrics, [:device_id])
+# ❌ NEVER: Unbounded Flux query (scans entire bucket)
+flux = ~s|from(bucket: "metrics_raw") |> filter(fn: (r) => r.device_id == "#{id}")|
 
-# ✅ ALWAYS: Include time in composite index
-create index(:metrics, [:device_id, :time])
+# ✅ ALWAYS: Include a range() call to bound the query
+flux = ~s|from(bucket: "metrics_raw") |> range(start: -1h) |> filter(fn: (r) => r.device_id == "#{id}")|
 ```
-**Why**: TimescaleDB documentation explicitly warns this causes very slow ingest speeds. Chunk-level index pruning requires the time column.
+**Why**: InfluxDB requires a time range for efficient queries. Unbounded queries scan all data in the bucket and may timeout or exhaust memory.
 
 ## 6. Never Block the Request Path with Device Connections
 ```elixir
@@ -75,18 +75,19 @@ end
 ```
 **Why**: SSH/gRPC connections take seconds and may timeout. Never block a user-facing request.
 
-## 7. Never Skip the Flush Between Table Creation and Hypertable Conversion
+## 7. Never Interpolate Unsanitized User Input into Flux Queries
 ```elixir
-# ❌ NEVER
-create table(:metrics, primary_key: false) do ... end
-create_hypertable(:metrics, :time)  # FAILS: table doesn't exist yet
+# ❌ NEVER: Direct string interpolation of user input
+flux = ~s|from(bucket: "metrics_raw") |> filter(fn: (r) => r.device_id == "#{user_input}")|
 
-# ✅ ALWAYS
-create table(:metrics, primary_key: false) do ... end
-flush()  # ensures CREATE TABLE is executed
-create_hypertable(:metrics, :time)
+# ✅ ALWAYS: Escape special characters before interpolating
+flux = ~s|from(bucket: "metrics_raw") |> filter(fn: (r) => r.device_id == "#{escape_flux(user_input)}")|
+
+defp escape_flux(str) do
+  str |> String.replace("\\", "\\\\") |> String.replace("\"", "\\\"")
+end
 ```
-**Why**: Ecto migrations batch SQL statements. Without `flush()`, the table hasn't been created when `create_hypertable` runs.
+**Why**: Unescaped input could break Flux query syntax or cause injection. Always sanitize strings before embedding in Flux queries.
 
 ## 8. Never Run Oban Workers on Web Nodes
 ```elixir

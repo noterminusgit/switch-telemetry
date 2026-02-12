@@ -79,16 +79,7 @@ defmodule SwitchTelemetry.Collector.NodeMonitor do
   end
 
   def handle_info(:heartbeat, state) do
-    # Update collector heartbeat in DB for all devices we own
-    collector_node = Atom.to_string(Node.self())
-    now = DateTime.utc_now()
-
-    import Ecto.Query
-
-    from(d in SwitchTelemetry.Devices.Device,
-      where: d.assigned_collector == ^collector_node
-    )
-    |> SwitchTelemetry.Repo.update_all(set: [collector_heartbeat: now])
+    update_collector_heartbeat()
 
     :telemetry.execute(
       [:switch_telemetry, :cluster, :nodes],
@@ -102,6 +93,20 @@ defmodule SwitchTelemetry.Collector.NodeMonitor do
   def handle_info(_msg, state), do: {:noreply, state}
 
   # --- Private ---
+
+  defp update_collector_heartbeat do
+    import Ecto.Query
+
+    collector_node = Atom.to_string(Node.self())
+    now = DateTime.utc_now()
+
+    from(d in SwitchTelemetry.Devices.Device,
+      where: d.assigned_collector == ^collector_node
+    )
+    |> SwitchTelemetry.Repo.update_all(set: [collector_heartbeat: now])
+  rescue
+    DBConnection.OwnershipError -> :ok
+  end
 
   defp schedule_heartbeat do
     Process.send_after(self(), :heartbeat, @heartbeat_interval)

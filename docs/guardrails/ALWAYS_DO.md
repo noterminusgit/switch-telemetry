@@ -2,7 +2,7 @@
 
 ## Data Integrity
 
-### 1. Always Write Metrics to TimescaleDB Before Broadcasting
+### 1. Always Write Metrics to InfluxDB Before Broadcasting
 ```elixir
 # Persist first, then notify
 Metrics.insert_batch(metrics)
@@ -12,34 +12,31 @@ If PubSub broadcast fails, data is still durably stored. If insert fails, don't 
 
 ### 2. Always Use Batch Inserts for Metrics
 ```elixir
-# ✅ Batch insert (one round-trip)
-Repo.insert_all("metrics", entries)
+# ✅ Batch insert (one InfluxDB write call)
+Metrics.insert_batch(entries)
 
 # ❌ Individual inserts (N round-trips)
-Enum.each(entries, &Repo.insert/1)
+Enum.each(entries, &Metrics.insert_batch([&1]))
 ```
-At 100k metrics/sec, individual inserts would overwhelm the database connection pool.
+At 100k metrics/sec, individual inserts would overwhelm the InfluxDB connection.
 
-### 3. Always Include Time Range in Metric Queries
+### 3. Always Include Time Range in InfluxDB Queries
 ```elixir
-# ✅ Bounded query
-from(m in "metrics", where: m.time > ago(1, "hour"))
+# ✅ Bounded Flux query
+from(bucket: "metrics_raw") |> range(start: -1h)
 
-# ❌ Unbounded query (scans entire hypertable)
-from(m in "metrics", where: m.device_id == ^id)
+# ❌ Unbounded query (scans entire bucket)
+from(bucket: "metrics_raw") |> filter(fn: (r) => r.device_id == id)
 ```
-TimescaleDB uses time-based chunk pruning. Without a time predicate, it scans all chunks.
+InfluxDB requires `range()` for efficient time-series queries. Without it, the query scans all data in the bucket.
 
-### 4. Always Use Continuous Aggregates for Dashboard Queries > 1 Hour
+### 4. Always Use Downsampled Buckets for Dashboard Queries > 1 Hour
 ```elixir
-def query_for_range(range) do
-  duration = DateTime.diff(range.end, range.start)
-  cond do
-    duration <= 3600  -> query_raw_table(range)
-    duration <= 86400 -> query_5m_aggregate(range)
-    true              -> query_1h_aggregate(range)
-  end
-end
+# The QueryRouter and InfluxBackend handle this automatically:
+# <= 1h  → metrics_raw bucket with aggregateWindow
+# 1-24h  → metrics_5m bucket (pre-aggregated by Flux task)
+# > 24h  → metrics_1h bucket (pre-aggregated by Flux task)
+QueryRouter.query(device_id, path, time_range)
 ```
 
 ## Protocol Sessions
@@ -113,11 +110,14 @@ defp collector_children(role) when role in ["collector", "both"], do: [...]
 defp collector_children(_), do: []
 ```
 
-### 12. Always Use `flush()` Between Table Creation and Hypertable Conversion
+### 12. Always Use the Backend Abstraction for Metrics Operations
 ```elixir
-create table(:metrics, ...) do ... end
-flush()
-create_hypertable(:metrics, :time)
+# ✅ Use the Metrics context (delegates to configured backend)
+Metrics.insert_batch(metrics)
+Metrics.get_latest(device_id, limit: 100)
+
+# ❌ Don't call InfluxDB directly from business logic
+SwitchTelemetry.InfluxDB.write(points)
 ```
 
 ### 13. Always Tag Metrics with Device ID and Source Protocol
@@ -157,10 +157,12 @@ Keep sample gNMI notifications and NETCONF XML responses in `test/fixtures/` fro
 ## Operations
 
 ### 18. Always Set Data Retention Policies
-```sql
-SELECT add_retention_policy('metrics', INTERVAL '30 days');
-SELECT add_retention_policy('metrics_5m', INTERVAL '180 days');
-SELECT add_retention_policy('metrics_1h', INTERVAL '730 days');
+```bash
+# InfluxDB bucket retention is configured at bucket creation time:
+influx bucket create -n metrics_raw -r 720h    # 30 days
+influx bucket create -n metrics_5m  -r 4320h   # 180 days
+influx bucket create -n metrics_1h  -r 17520h  # 730 days
+# See priv/influxdb/setup.sh for the full setup script.
 ```
 
 ### 19. Always Monitor Collector Session Counts via Telemetry

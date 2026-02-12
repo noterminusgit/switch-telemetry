@@ -27,29 +27,25 @@ Represents a network device (switch, router, firewall) that we collect telemetry
 }
 ```
 
-### Metric (hypertable)
+### Metric (InfluxDB measurement)
 
-A single telemetry data point. Stored in a TimescaleDB hypertable partitioned by `time`.
+A single telemetry data point. Stored in InfluxDB's `metrics_raw` bucket as a measurement named `"metrics"`.
 
 ```elixir
-%SwitchTelemetry.Metrics.Metric{
-  time: ~U[2024-01-15 10:30:00.123456Z],    # NOT NULL, hypertable partition key
-  device_id: "dev_01HQBMB5KTQNDRPQHM3VX",  # FK to devices
-  path: "/interfaces/interface[name=Ethernet1/1]/state/counters/in-octets",
-  source: :gnmi,                              # :gnmi | :netconf
-  tags: %{                                    # JSONB for flexible metadata
-    "interface" => "Ethernet1/1",
-    "direction" => "in",
-    "counter_type" => "octets"
-  },
-  value_float: 1_234_567.89,                 # used for gauges, rates
-  value_int: nil,                            # used for counters, discrete values
-  value_str: nil                             # used for state strings ("up", "down")
+# Conceptual representation (stored in InfluxDB, not an Ecto schema)
+%{
+  time: ~U[2024-01-15 10:30:00.123456Z],    # NOT NULL, nanosecond precision
+  device_id: "dev_01HQBMB5KTQNDRPQHM3VX",  # tag (indexed)
+  path: "/interfaces/interface[name=Ethernet1/1]/state/counters/in-octets",  # tag
+  source: :gnmi,                              # tag: :gnmi | :netconf
+  value_float: 1_234_567.89,                 # field: used for gauges, rates
+  value_int: nil,                            # field: used for counters, discrete values
+  value_str: nil                             # field: used for state strings ("up", "down")
 }
 ```
 
-**Why three value columns (medium table layout)?**
-Network telemetry is heterogeneous -- interface counters are integers, CPU utilization is a float, interface admin-status is a string. A single `value` column would require type coercion and lose precision. The medium layout keeps proper types while allowing new metrics without schema changes. NULL values compress to near-zero in TimescaleDB.
+**Why three value fields (medium layout)?**
+Network telemetry is heterogeneous -- interface counters are integers, CPU utilization is a float, interface admin-status is a string. A single `value` field would require type coercion and lose precision. The medium layout keeps proper types while allowing new metrics without schema changes. In InfluxDB, unused fields simply don't appear in the line protocol point (no storage cost).
 
 ### Subscription
 
@@ -157,7 +153,7 @@ Encrypted device authentication credentials.
 ```
 Credential  1 ──── * Device
 Device      1 ──── * Subscription
-Device      1 ──── * Metric (hypertable)
+Device      1 ──── * Metric (InfluxDB)
 Dashboard   1 ──── * Widget
 User        1 ──── * Dashboard
 ```
@@ -166,9 +162,9 @@ User        1 ──── * Dashboard
 
 1. A device can have both gNMI and NETCONF transports (`transport: :both`), but each transport gets its own session GenServer.
 2. Subscriptions are per-device. Multiple paths can be batched into a single gNMI SubscribeRequest.
-3. Metrics are append-only. Never update or delete individual metric rows (TimescaleDB manages retention via policies).
+3. Metrics are append-only. Never update or delete individual data points (InfluxDB manages retention via bucket policies).
 4. Dashboard widgets can reference metrics from multiple devices (e.g., compare bandwidth across uplinks).
-5. Only collector nodes write to the `metrics` hypertable. Web nodes only read.
+5. Only collector nodes write to the InfluxDB `metrics_raw` bucket. Web nodes only read.
 6. Device assignment is exclusive -- exactly one collector node owns a device at any time.
 
 ## State Machines

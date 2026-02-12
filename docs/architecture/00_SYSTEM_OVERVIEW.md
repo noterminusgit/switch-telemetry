@@ -44,24 +44,22 @@ Switch Telemetry provides a single platform for collecting, storing, and visuali
 └─────────────┼───────────────────────────────────────────────────────┘
               │
               ▼
-    ┌──────────────────┐
-    │   TimescaleDB    │
-    │  (PostgreSQL +   │
-    │   hypertables)   │
-    │                  │
-    │  ┌────────────┐  │
-    │  │ metrics    │  │  ← hypertable, partitioned by time
-    │  │ (raw)      │  │
-    │  ├────────────┤  │
-    │  │ metrics_5m │  │  ← continuous aggregate (5-minute buckets)
-    │  ├────────────┤  │
-    │  │ metrics_1h │  │  ← continuous aggregate (1-hour buckets)
-    │  ├────────────┤  │
-    │  │ devices    │  │  ← device inventory (standard table)
-    │  ├────────────┤  │
-    │  │ dashboards │  │  ← user dashboard configurations
-    │  └────────────┘  │
-    └──────────────────┘
+    ┌──────────────────┐     ┌──────────────────┐
+    │   InfluxDB v2    │     │   PostgreSQL     │
+    │  (time-series)   │     │  (relational)    │
+    │                  │     │                  │
+    │  ┌────────────┐  │     │  ┌────────────┐  │
+    │  │ metrics_raw│  │     │  │ devices    │  │
+    │  │ (30d ret.) │  │     │  ├────────────┤  │
+    │  ├────────────┤  │     │  │ dashboards │  │
+    │  │ metrics_5m │  │     │  ├────────────┤  │
+    │  │ (180d ret.)│  │     │  │ users      │  │
+    │  ├────────────┤  │     │  ├────────────┤  │
+    │  │ metrics_1h │  │     │  │ alert_rules│  │
+    │  │ (730d ret.)│  │     │  ├────────────┤  │
+    │  └────────────┘  │     │  │ oban_jobs  │  │
+    └──────────────────┘     │  └────────────┘  │
+                             └──────────────────┘
 ```
 
 ## Component Overview
@@ -79,24 +77,30 @@ Switch Telemetry provides a single platform for collecting, storing, and visuali
 
 **Purpose**: Serve interactive dashboards with real-time updates.
 
-- **LiveView Dashboards** -- Users create custom dashboards composed of widgets. Each widget subscribes to PubSub topics for real-time data and queries TimescaleDB for historical ranges.
+- **LiveView Dashboards** -- Users create custom dashboards composed of widgets. Each widget subscribes to PubSub topics for real-time data and queries InfluxDB for historical ranges.
 - **VegaLite/Tucan Charts** -- Client-side interactive rendering. Tucan's `lineplot` for time-series trends, `bar` for comparisons, `area` for bandwidth utilization, `scatter` for discrete events. JSON specs are pushed to the browser via LiveView hooks, rendered by the Vega JS runtime with built-in tooltips, zoom, and pan.
 - **Dashboard Configuration** -- Stored in PostgreSQL. Users can add/remove/rearrange widgets, set time ranges, choose metrics and devices per widget.
 
-### TimescaleDB
+### InfluxDB v2
 
-**Purpose**: Durable time-series storage with SQL query power.
+**Purpose**: Durable time-series storage with Flux query language.
 
-- **Raw metrics hypertable** -- All incoming telemetry lands here. Partitioned by time (1-day chunks by default). Compressed after 7 days.
-- **Continuous aggregates** -- Pre-computed 5-minute and 1-hour rollups that refresh automatically. Used for dashboard queries over longer time ranges.
-- **Standard tables** -- Device inventory, dashboard configurations, user accounts.
+- **metrics_raw bucket** (30d retention) -- All incoming telemetry lands here via line protocol. Tagged by device_id, path, source. Fields: value_float, value_int, value_str.
+- **metrics_5m bucket** (180d retention) -- 5-minute downsampled aggregates (avg, max, min, count). Populated by a Flux task running every 5 minutes.
+- **metrics_1h bucket** (730d retention) -- 1-hour downsampled aggregates. Populated by a Flux task running hourly.
+
+### PostgreSQL
+
+**Purpose**: Relational data storage.
+
+- **Standard tables** -- Device inventory, dashboard configurations, user accounts, alert rules/events, notification channels, Oban job queue.
 
 ## Data Flow
 
 1. Network device emits telemetry (gNMI notification or NETCONF event)
 2. Collector node's `GnmiSession` / `NetconfSession` receives it
 3. Metric is normalized into `{time, device_id, path, tags, value}` tuples
-4. Batch inserted into TimescaleDB `metrics` hypertable
+4. Batch inserted into InfluxDB `metrics_raw` bucket via line protocol
 5. Simultaneously broadcast via `Phoenix.PubSub.broadcast/3` to topic `"device:{device_id}"`
 6. Web node's LiveView receives PubSub message, updates socket assigns
 7. LiveView rebuilds VegaLite spec with new data, pushes it via `push_event/3` to the browser's Vega hook for re-render
@@ -105,7 +109,8 @@ Switch Telemetry provides a single platform for collecting, storing, and visuali
 
 | Technology | Why |
 |---|---|
-| **TimescaleDB** | PostgreSQL extension = works with Ecto/Postgrex out of the box. SQL for complex queries. Continuous aggregates for pre-computed rollups. Compression for cost efficiency. The `timescale` hex package adds migration helpers. |
+| **InfluxDB v2** | Purpose-built time-series database. Flux query language with native aggregation and downsampling. Built-in bucket retention policies. Open source for self-hosted use. The `instream` hex package provides an Elixir client. |
+| **PostgreSQL** | Standard relational database for device inventory, dashboards, users, alerts, and Oban jobs. Works with Ecto/Postgrex out of the box. |
 | **VegaLite/Tucan** | Vega-Lite grammar of graphics via Elixir. Tucan provides high-level chart functions (`lineplot`, `bar`, `area`, `scatter`). Rich built-in interactivity (tooltips, zoom, pan, selections). Rendered client-side by Vega JS runtime. Temporal encoding handles timestamp axes natively. |
 | **elixir-grpc** | Mature gRPC implementation (5M+ downloads). Supports bidirectional streaming needed for gNMI Subscribe. Mint and Gun HTTP/2 adapters. |
 | **Erlang :ssh** | OTP ships with SSH client. Direct access to SSH subsystem invocation for NETCONF. No external dependency needed. |
@@ -116,19 +121,19 @@ Switch Telemetry provides a single platform for collecting, storing, and visuali
 
 - **Horizontal collector scaling**: Add more collector nodes. Devices are rebalanced automatically via consistent hashing or database assignment.
 - **Horizontal web scaling**: Add more web nodes behind a load balancer. LiveView WebSocket connections are sticky to a node, but PubSub ensures all nodes receive all events.
-- **Database scaling**: TimescaleDB read replicas for dashboard queries. Continuous aggregates reduce query load. Compression + retention policies manage storage growth.
+- **Database scaling**: InfluxDB handles time-series reads/writes independently of PostgreSQL. Downsampled buckets (5m, 1h) reduce query load for longer ranges. Retention policies manage storage growth automatically.
 - **Target**: 5,000+ devices, 100k+ metrics/second ingestion, sub-second dashboard updates.
 
-## "Are TimescaleDB Reads Real-Time?"
+## InfluxDB Query Latency
 
-**Yes.** TimescaleDB is PostgreSQL with a time-series extension. Regular SQL queries against the raw `metrics` hypertable return data as fast as any PostgreSQL query -- typically single-digit milliseconds for recent data (the most recent chunks are kept uncompressed in memory).
+**Raw bucket queries are near-real-time.** Data written via line protocol is queryable within milliseconds. InfluxDB's TSM storage engine is optimized for recent time-series reads.
 
 The distinction:
-- **Raw queries** (`SELECT * FROM metrics WHERE time > now() - interval '5 minutes'`) -- fully real-time, returns whatever was just inserted
-- **Continuous aggregates** (`SELECT * FROM metrics_5m WHERE bucket > now() - interval '1 hour'`) -- materialized views that refresh on a schedule (e.g., every 5 minutes). There's a lag equal to the refresh interval.
+- **Raw queries** (`from(bucket: "metrics_raw") |> range(start: -5m)`) -- returns whatever was just written, single-digit millisecond latency for recent data
+- **Downsampled queries** (`from(bucket: "metrics_5m")`) -- populated by Flux tasks on a schedule (every 5 minutes). There's a lag equal to the task interval.
 
 **For dashboards**, the architecture combines both:
 - Real-time updates come via **PubSub** (zero lag, pushed from collector to browser)
-- Historical chart data comes from **TimescaleDB queries** (real-time for raw data, near-real-time for aggregates)
-- When a user first loads a dashboard or scrolls back in time, we query the DB
+- Historical chart data comes from **InfluxDB Flux queries** (raw bucket for short ranges, downsampled buckets for longer ranges)
+- When a user first loads a dashboard or scrolls back in time, we query InfluxDB
 - While they're watching live, PubSub pushes new points directly
