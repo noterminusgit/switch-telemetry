@@ -86,8 +86,9 @@ All nodes form a single BEAM cluster via `libcluster`, enabling transparent PubS
 mix deps.get
 mix ecto.setup
 
-# Generate gNMI proto modules
-mix grpc.gen proto/gnmi.proto --out lib/switch_telemetry_collector/gnmi/
+# gNMI proto modules are pre-generated in lib/switch_telemetry/collector/gnmi/proto/
+# To regenerate from a .proto file:
+# protoc --elixir_out=plugins=grpc:./lib proto/gnmi.proto
 
 # Run in development (single node, both roles)
 mix phx.server
