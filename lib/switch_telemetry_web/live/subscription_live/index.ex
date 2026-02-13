@@ -28,7 +28,11 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
     |> assign(:subscription, %Subscription{
       id: generate_id(),
       device_id: socket.assigns.device.id,
-      paths: []
+      paths: [],
+      mode: :stream,
+      sample_interval_ns: 30_000_000_000,
+      encoding: :proto,
+      enabled: true
     })
   end
 
@@ -58,45 +62,11 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
     subscription = Collector.get_subscription!(id)
     {:ok, _} = Collector.delete_subscription(subscription)
     subscriptions = Collector.list_subscriptions_for_device(socket.assigns.device.id)
-    {:noreply, assign(socket, subscriptions: subscriptions)}
-  end
 
-  def handle_event("save", %{"subscription" => subscription_params}, socket) do
-    subscription_params = prepare_subscription_params(subscription_params, socket)
-
-    result =
-      if socket.assigns.live_action == :edit do
-        Collector.update_subscription(socket.assigns.subscription, subscription_params)
-      else
-        Collector.create_subscription(subscription_params)
-      end
-
-    case result do
-      {:ok, _subscription} ->
-        device_id = socket.assigns.device.id
-
-        {:noreply,
-         socket
-         |> put_flash(:info, "Subscription saved")
-         |> push_navigate(to: ~p"/devices/#{device_id}/subscriptions")}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
-    end
-  end
-
-  defp prepare_subscription_params(params, socket) do
-    paths =
-      params
-      |> Map.get("paths", "")
-      |> String.split("\n")
-      |> Enum.map(&String.trim/1)
-      |> Enum.reject(&(&1 == ""))
-
-    params
-    |> Map.put("paths", paths)
-    |> Map.put("id", socket.assigns.subscription.id)
-    |> Map.put("device_id", socket.assigns.device.id)
+    {:noreply,
+     socket
+     |> put_flash(:info, "Subscription deleted")
+     |> assign(subscriptions: subscriptions)}
   end
 
   @impl true
@@ -125,48 +95,13 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
           <h2 class="text-lg font-semibold mb-4">
             {if @live_action == :new, do: "New Subscription", else: "Edit Subscription"}
           </h2>
-          <.simple_form for={%{}} phx-submit="save">
-            <.input
-              type="textarea"
-              name="subscription[paths]"
-              label="Paths (one per line)"
-              value={Enum.join(@subscription.paths || [], "\n")}
-              placeholder="/interfaces/interface/state/counters&#10;/system/state/hostname"
-              required
-            />
-            <.input
-              type="select"
-              name="subscription[mode]"
-              label="Mode"
-              value={@subscription.mode || :stream}
-              options={[{"Stream", :stream}, {"Poll", :poll}, {"Once", :once}]}
-            />
-            <.input
-              type="number"
-              name="subscription[sample_interval_ns]"
-              label="Sample Interval (ns)"
-              value={@subscription.sample_interval_ns || 30_000_000_000}
-            />
-            <.input
-              type="select"
-              name="subscription[encoding]"
-              label="Encoding"
-              value={@subscription.encoding || :proto}
-              options={[{"Proto", :proto}, {"JSON", :json}, {"JSON IETF", :json_ietf}]}
-            />
-            <.input
-              type="checkbox"
-              name="subscription[enabled]"
-              label="Enabled"
-              value={if @subscription.enabled == false, do: false, else: true}
-            />
-            <:actions>
-              <.button type="submit">Save Subscription</.button>
-              <.link navigate={~p"/devices/#{@device.id}/subscriptions"} class="ml-4 text-gray-600">
-                Cancel
-              </.link>
-            </:actions>
-          </.simple_form>
+          <.live_component
+            module={SwitchTelemetryWeb.SubscriptionLive.FormComponent}
+            id={@subscription.id || :new}
+            device={@device}
+            subscription={@subscription}
+            action={@live_action}
+          />
         </div>
       <% end %>
 
@@ -233,6 +168,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
 
       <div :if={@subscriptions == []} class="text-center py-12 text-gray-500">
         No subscriptions configured for this device.
+        <.link navigate={~p"/devices/#{@device.id}/subscriptions/new"} class="text-indigo-600 hover:text-indigo-800 ml-1">
+          Create one
+        </.link>
       </div>
     </div>
     """
