@@ -48,7 +48,17 @@ defmodule SwitchTelemetryWeb.DeviceLive.Show do
       </.link>
 
       <header class="mt-4 mb-8">
-        <h1 class="text-2xl font-bold text-gray-900">{@device.hostname}</h1>
+        <div class="flex items-center justify-between">
+          <h1 class="text-2xl font-bold text-gray-900">{@device.hostname}</h1>
+          <div class="flex items-center gap-3">
+            <.link navigate={~p"/devices/#{@device.id}/edit"} class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              Edit Device
+            </.link>
+            <.link navigate={~p"/devices/#{@device.id}/subscriptions"} class="text-sm text-indigo-600 hover:text-indigo-800 font-medium">
+              Manage Subscriptions
+            </.link>
+          </div>
+        </div>
         <div class="flex items-center gap-4 mt-2">
           <span class={"inline-flex px-2 py-1 text-xs rounded-full #{status_color(@device.status)}"}>
             {@device.status}

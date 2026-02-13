@@ -41,6 +41,7 @@ defmodule SwitchTelemetry.Application do
       SwitchTelemetry.Collector.DeviceAssignment,
       SwitchTelemetry.Collector.NodeMonitor,
       SwitchTelemetry.Collector.DeviceManager,
+      SwitchTelemetry.Collector.StreamMonitor,
       {Oban, Application.fetch_env!(:switch_telemetry, Oban)}
     ]
   end

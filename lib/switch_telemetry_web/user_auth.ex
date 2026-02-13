@@ -93,12 +93,16 @@ defmodule SwitchTelemetryWeb.UserAuth do
 
   Checks the session for a `user_token` first. If not present, falls
   back to the signed remember-me cookie. Assigns `:current_user` to
-  the conn (either a `%User{}` or `nil`).
+  the conn (either a `%User{}` or `nil`). Also assigns `:current_path`
+  for layout navigation highlighting.
   """
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Accounts.get_user_by_session_token(user_token)
-    assign(conn, :current_user, user)
+
+    conn
+    |> assign(:current_user, user)
+    |> assign(:current_path, conn.request_path)
   end
 
   defp ensure_user_token(conn) do
@@ -190,7 +194,10 @@ defmodule SwitchTelemetryWeb.UserAuth do
   end
 
   def on_mount(:ensure_authenticated, _params, session, socket) do
-    socket = mount_current_user(socket, session)
+    socket =
+      socket
+      |> mount_current_user(session)
+      |> mount_current_path()
 
     if socket.assigns.current_user do
       {:cont, socket}
@@ -205,7 +212,10 @@ defmodule SwitchTelemetryWeb.UserAuth do
   end
 
   def on_mount(:ensure_admin, _params, session, socket) do
-    socket = mount_current_user(socket, session)
+    socket =
+      socket
+      |> mount_current_user(session)
+      |> mount_current_path()
 
     if socket.assigns.current_user && socket.assigns.current_user.role == :admin do
       {:cont, socket}
@@ -224,6 +234,20 @@ defmodule SwitchTelemetryWeb.UserAuth do
       if user_token = session["user_token"] do
         Accounts.get_user_by_session_token(user_token)
       end
+    end)
+  end
+
+  defp mount_current_path(socket) do
+    path =
+      case socket.private[:connect_info] do
+        %{uri: uri} when is_struct(uri, URI) -> uri.path || "/"
+        _ -> "/"
+      end
+
+    socket
+    |> Phoenix.Component.assign(:current_path, path)
+    |> Phoenix.LiveView.attach_hook(:update_current_path, :handle_params, fn _params, uri, socket ->
+      {:cont, Phoenix.Component.assign(socket, :current_path, URI.parse(uri).path)}
     end)
   end
 

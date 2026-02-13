@@ -8,6 +8,267 @@ defmodule SwitchTelemetryWeb.CoreComponents do
   use Gettext, backend: SwitchTelemetryWeb.Gettext
 
   @doc """
+  Renders a slide-over modal panel.
+
+  ## Examples
+
+      <.modal id="confirm-modal" show={@show_modal} on_cancel={JS.push("close_modal")}>
+        <:title>Confirm Action</:title>
+        <p>Are you sure?</p>
+        <:actions>
+          <.button>Confirm</.button>
+        </:actions>
+      </.modal>
+  """
+  attr :id, :string, required: true
+  attr :show, :boolean, default: false
+  attr :on_cancel, JS, default: %JS{}
+
+  slot :inner_block, required: true
+  slot :title
+  slot :subtitle
+  slot :actions
+
+  def modal(assigns) do
+    ~H"""
+    <div
+      id={@id}
+      phx-mounted={@show && show_modal(@id)}
+      phx-remove={hide_modal(@id)}
+      data-cancel={JS.exec(@on_cancel, "phx-remove")}
+      class="relative z-50 hidden"
+    >
+      <div
+        id={"#{@id}-bg"}
+        class="fixed inset-0 bg-gray-900/50 transition-opacity"
+        aria-hidden="true"
+      />
+      <div
+        class="fixed inset-0 overflow-hidden"
+        aria-labelledby={"#{@id}-title"}
+        aria-describedby={"#{@id}-description"}
+        role="dialog"
+        aria-modal="true"
+        tabindex="0"
+      >
+        <div class="absolute inset-0 overflow-hidden">
+          <div class="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10">
+            <.focus_wrap
+              id={"#{@id}-container"}
+              phx-window-keydown={JS.exec("data-cancel", to: "##{@id}")}
+              phx-key="escape"
+              phx-click-away={JS.exec("data-cancel", to: "##{@id}")}
+              class="pointer-events-auto w-screen max-w-md"
+            >
+              <div class="flex h-full flex-col overflow-y-scroll bg-white shadow-xl">
+                <div class="bg-indigo-700 px-4 py-6 sm:px-6">
+                  <div class="flex items-center justify-between">
+                    <h2
+                      :if={@title != []}
+                      id={"#{@id}-title"}
+                      class="text-base font-semibold leading-6 text-white"
+                    >
+                      {render_slot(@title)}
+                    </h2>
+                    <div class="ml-3 flex h-7 items-center">
+                      <button
+                        type="button"
+                        class="relative rounded-md bg-indigo-700 text-indigo-200 hover:text-white focus:outline-none focus:ring-2 focus:ring-white"
+                        phx-click={JS.exec("data-cancel", to: "##{@id}")}
+                      >
+                        <span class="sr-only">Close panel</span>
+                        <.icon name="hero-x-mark" class="h-6 w-6" />
+                      </button>
+                    </div>
+                  </div>
+                  <div :if={@subtitle != []} class="mt-1">
+                    <p id={"#{@id}-description"} class="text-sm text-indigo-300">
+                      {render_slot(@subtitle)}
+                    </p>
+                  </div>
+                </div>
+                <div class="relative flex-1 px-4 py-6 sm:px-6">
+                  {render_slot(@inner_block)}
+                </div>
+                <div :if={@actions != []} class="flex flex-shrink-0 justify-end gap-3 px-4 py-4 border-t border-gray-200">
+                  {render_slot(@actions)}
+                </div>
+              </div>
+            </.focus_wrap>
+          </div>
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a Heroicon.
+
+  Heroicons come in three styles - outline, solid, and mini.
+  By default, the outline style is used, but solid and mini may
+  be applied by using the `-solid` and `-mini` suffix.
+
+  You can customize the size and colors of the icons by setting
+  width, height, and background color classes.
+
+  Icons are extracted from the `heroicons` directory and bundled within
+  your compiled app.css by the plugin in your `assets/tailwind.config.js`.
+
+  ## Examples
+
+      <.icon name="hero-x-mark-solid" />
+      <.icon name="hero-arrow-path" class="ml-1 w-3 h-3 animate-spin" />
+  """
+  attr :name, :string, required: true
+  attr :class, :any, default: nil
+
+  def icon(%{name: "hero-" <> _} = assigns) do
+    ~H"""
+    <span class={[@name, @class]} />
+    """
+  end
+
+  @doc """
+  Renders a dropdown menu.
+
+  ## Examples
+
+      <.dropdown id="user-menu">
+        <:trigger>
+          <.button>Options</.button>
+        </:trigger>
+        <:item navigate={~p"/settings"}>Settings</:item>
+        <:item phx-click="logout">Log out</:item>
+      </.dropdown>
+  """
+  attr :id, :string, required: true
+
+  slot :trigger, required: true
+  slot :item do
+    attr :navigate, :string
+    attr :href, :string
+    attr :method, :string
+  end
+
+  def dropdown(assigns) do
+    ~H"""
+    <div id={@id} class="relative" phx-click-away={hide_dropdown(@id)}>
+      <div phx-click={toggle_dropdown(@id)}>
+        {render_slot(@trigger)}
+      </div>
+      <div
+        id={"#{@id}-menu"}
+        class="hidden absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none"
+        role="menu"
+        aria-orientation="vertical"
+        aria-labelledby={"#{@id}-button"}
+        tabindex="-1"
+      >
+        <.link
+          :for={item <- @item}
+          navigate={item[:navigate]}
+          href={item[:href]}
+          method={item[:method]}
+          class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+          role="menuitem"
+          tabindex="-1"
+        >
+          {render_slot(item)}
+        </.link>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a tab navigation component.
+
+  ## Examples
+
+      <.tabs id="device-tabs" active_tab={@active_tab}>
+        <:tab id="overview" label="Overview" />
+        <:tab id="metrics" label="Metrics" />
+        <:tab id="settings" label="Settings" />
+      </.tabs>
+  """
+  attr :id, :string, required: true
+  attr :active_tab, :string, required: true
+
+  slot :tab, required: true do
+    attr :id, :string, required: true
+    attr :label, :string, required: true
+    attr :navigate, :string
+    attr :patch, :string
+  end
+
+  def tabs(assigns) do
+    ~H"""
+    <div id={@id} class="border-b border-gray-200">
+      <nav class="-mb-px flex space-x-8" aria-label="Tabs">
+        <.link
+          :for={tab <- @tab}
+          navigate={tab[:navigate]}
+          patch={tab[:patch]}
+          class={[
+            "whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium",
+            @active_tab == tab.id && "border-indigo-500 text-indigo-600",
+            @active_tab != tab.id && "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+          ]}
+          aria-current={@active_tab == tab.id && "page"}
+        >
+          {tab.label}
+        </.link>
+      </nav>
+    </div>
+    """
+  end
+
+  @doc """
+  Renders a status badge.
+
+  ## Examples
+
+      <.status_badge status={:active} />
+      <.status_badge status={:unreachable} />
+  """
+  attr :status, :atom, required: true, values: [:active, :inactive, :unreachable, :maintenance]
+  attr :class, :string, default: nil
+
+  def status_badge(assigns) do
+    ~H"""
+    <span class={[
+      "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
+      @status == :active && "bg-green-100 text-green-800",
+      @status == :inactive && "bg-gray-100 text-gray-800",
+      @status == :unreachable && "bg-red-100 text-red-800",
+      @status == :maintenance && "bg-yellow-100 text-yellow-800",
+      @class
+    ]}>
+      <svg
+        class={[
+          "-ml-0.5 mr-1.5 h-2 w-2",
+          @status == :active && "fill-green-500",
+          @status == :inactive && "fill-gray-400",
+          @status == :unreachable && "fill-red-500",
+          @status == :maintenance && "fill-yellow-500"
+        ]}
+        viewBox="0 0 6 6"
+        aria-hidden="true"
+      >
+        <circle cx="3" cy="3" r="3" />
+      </svg>
+      {status_label(@status)}
+    </span>
+    """
+  end
+
+  defp status_label(:active), do: "Active"
+  defp status_label(:inactive), do: "Inactive"
+  defp status_label(:unreachable), do: "Unreachable"
+  defp status_label(:maintenance), do: "Maintenance"
+
+  @doc """
   Renders flash notices.
   """
   attr :id, :string, doc: "the optional id of flash container"
@@ -208,6 +469,56 @@ defmodule SwitchTelemetryWeb.CoreComponents do
         {"transition-all transform ease-in duration-200",
          "opacity-100 translate-y-0 sm:scale-100",
          "opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"}
+    )
+  end
+
+  defp show_modal(id) do
+    JS.show(to: "##{id}")
+    |> JS.show(
+      to: "##{id}-bg",
+      time: 300,
+      transition: {"transition-opacity ease-out duration-300", "opacity-0", "opacity-100"}
+    )
+    |> JS.show(
+      to: "##{id}-container",
+      time: 300,
+      transition:
+        {"transition-transform ease-out duration-300", "translate-x-full", "translate-x-0"}
+    )
+    |> JS.add_class("overflow-hidden", to: "body")
+    |> JS.focus_first(to: "##{id}-container")
+  end
+
+  defp hide_modal(js \\ %JS{}, id) do
+    js
+    |> JS.hide(
+      to: "##{id}-bg",
+      time: 200,
+      transition: {"transition-opacity ease-in duration-200", "opacity-100", "opacity-0"}
+    )
+    |> JS.hide(
+      to: "##{id}-container",
+      time: 200,
+      transition:
+        {"transition-transform ease-in duration-200", "translate-x-0", "translate-x-full"}
+    )
+    |> JS.hide(to: "##{id}", time: 200)
+    |> JS.remove_class("overflow-hidden", to: "body")
+    |> JS.pop_focus()
+  end
+
+  defp toggle_dropdown(id) do
+    JS.toggle(
+      to: "##{id}-menu",
+      in: {"transition ease-out duration-100", "transform opacity-0 scale-95", "transform opacity-100 scale-100"},
+      out: {"transition ease-in duration-75", "transform opacity-100 scale-100", "transform opacity-0 scale-95"}
+    )
+  end
+
+  defp hide_dropdown(id) do
+    JS.hide(
+      to: "##{id}-menu",
+      transition: {"transition ease-in duration-75", "transform opacity-100 scale-100", "transform opacity-0 scale-95"}
     )
   end
 end

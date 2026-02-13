@@ -149,7 +149,13 @@ defmodule SwitchTelemetryWeb.DeviceLive.Index do
                 </span>
               </td>
               <td class="px-6 py-4 text-sm text-gray-500">{device.assigned_collector || "-"}</td>
-              <td class="px-6 py-4 text-right">
+              <td class="px-6 py-4 text-right space-x-3">
+                <.link navigate={~p"/devices/#{device.id}/edit"} class="text-sm text-indigo-600 hover:text-indigo-800">
+                  Edit
+                </.link>
+                <.link navigate={~p"/devices/#{device.id}/subscriptions"} class="text-sm text-indigo-600 hover:text-indigo-800">
+                  Subscriptions
+                </.link>
                 <button
                   phx-click="delete"
                   phx-value-id={device.id}

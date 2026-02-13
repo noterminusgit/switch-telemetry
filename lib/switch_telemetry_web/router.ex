@@ -65,6 +65,17 @@ defmodule SwitchTelemetryWeb.Router do
       live "/devices", DeviceLive.Index, :index
       live "/devices/new", DeviceLive.Index, :new
       live "/devices/:id", DeviceLive.Show, :show
+      live "/devices/:id/edit", DeviceLive.Edit, :edit
+      live "/devices/:id/subscriptions", SubscriptionLive.Index, :index
+      live "/devices/:id/subscriptions/new", SubscriptionLive.Index, :new
+      live "/devices/:id/subscriptions/:subscription_id/edit", SubscriptionLive.Index, :edit
+
+      live "/credentials", CredentialLive.Index, :index
+      live "/credentials/new", CredentialLive.Index, :new
+      live "/credentials/:id", CredentialLive.Show, :show
+      live "/credentials/:id/edit", CredentialLive.Edit, :edit
+
+      live "/streams", StreamLive.Monitor, :index
 
       live "/alerts", AlertLive.Index, :index
       live "/alerts/rules/new", AlertLive.Index, :new_rule

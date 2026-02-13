@@ -45,7 +45,27 @@ defmodule SwitchTelemetry.Devices do
     |> Repo.all()
   end
 
+  def change_device(%Device{} = device, attrs \\ %{}) do
+    Device.changeset(device, attrs)
+  end
+
+  def get_device_with_credential!(id) do
+    Device
+    |> Repo.get!(id)
+    |> Repo.preload(:credential)
+  end
+
+  def get_device_with_subscriptions!(id) do
+    Device
+    |> Repo.get!(id)
+    |> Repo.preload(:subscriptions)
+  end
+
   # --- Credentials ---
+
+  def list_credentials do
+    Repo.all(Credential)
+  end
 
   def get_credential!(id), do: Repo.get!(Credential, id)
 
@@ -65,5 +85,14 @@ defmodule SwitchTelemetry.Devices do
 
   def delete_credential(%Credential{} = credential) do
     Repo.delete(credential)
+  end
+
+  def change_credential(%Credential{} = credential, attrs \\ %{}) do
+    Credential.changeset(credential, attrs)
+  end
+
+  def list_credentials_for_select do
+    from(c in Credential, select: {c.name, c.id}, order_by: c.name)
+    |> Repo.all()
   end
 end
