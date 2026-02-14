@@ -17,6 +17,14 @@ defmodule SwitchTelemetryWeb.UserSessionController do
   end
 
   def create(conn, %{"user" => user_params}) do
+    do_create(conn, user_params)
+  end
+
+  def create(conn, %{"email" => _, "password" => _} = params) do
+    do_create(conn, params)
+  end
+
+  defp do_create(conn, user_params) do
     %{"email" => email, "password" => password} = user_params
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
