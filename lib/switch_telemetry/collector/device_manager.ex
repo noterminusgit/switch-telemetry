@@ -84,6 +84,10 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
 
     Logger.info("DeviceManager started #{map_size(sessions)} device sessions")
     {:noreply, %{state | sessions: sessions}}
+  rescue
+    e ->
+      Logger.warning("DeviceManager start_assigned_devices failed: #{inspect(e)}")
+      {:noreply, state}
   end
 
   def handle_info(:check_sessions, state) do
@@ -115,6 +119,11 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
 
     schedule_check()
     {:noreply, %{state | sessions: sessions}}
+  rescue
+    e ->
+      Logger.warning("DeviceManager check_sessions failed: #{inspect(e)}")
+      schedule_check()
+      {:noreply, state}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}

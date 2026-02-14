@@ -150,7 +150,8 @@ defmodule SwitchTelemetryWeb.Components.MobileNav do
     |> JS.show(
       to: "##{id}-panel",
       time: 300,
-      transition: {"transition ease-in-out duration-300 transform", "-translate-x-full", "translate-x-0"}
+      transition:
+        {"transition ease-in-out duration-300 transform", "-translate-x-full", "translate-x-0"}
     )
     |> JS.add_class("overflow-hidden", to: "body")
   end
@@ -167,7 +168,8 @@ defmodule SwitchTelemetryWeb.Components.MobileNav do
     |> JS.hide(
       to: "##{id}-panel",
       time: 300,
-      transition: {"transition ease-in-out duration-300 transform", "translate-x-0", "-translate-x-full"}
+      transition:
+        {"transition ease-in-out duration-300 transform", "translate-x-0", "-translate-x-full"}
     )
     |> JS.hide(to: "##{id}", time: 300)
     |> JS.remove_class("overflow-hidden", to: "body")

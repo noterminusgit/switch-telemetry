@@ -246,7 +246,9 @@ defmodule SwitchTelemetryWeb.UserAuth do
 
     socket
     |> Phoenix.Component.assign(:current_path, path)
-    |> Phoenix.LiveView.attach_hook(:update_current_path, :handle_params, fn _params, uri, socket ->
+    |> Phoenix.LiveView.attach_hook(:update_current_path, :handle_params, fn _params,
+                                                                             uri,
+                                                                             socket ->
       {:cont, Phoenix.Component.assign(socket, :current_path, URI.parse(uri).path)}
     end)
   end

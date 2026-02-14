@@ -35,24 +35,44 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
   @impl true
   def handle_event("filter_protocol", %{"protocol" => ""}, socket) do
     streams = StreamMonitor.list_streams()
-    {:noreply, assign(socket, streams: filter_streams(streams, %{socket.assigns | filter_protocol: nil}), filter_protocol: nil)}
+
+    {:noreply,
+     assign(socket,
+       streams: filter_streams(streams, %{socket.assigns | filter_protocol: nil}),
+       filter_protocol: nil
+     )}
   end
 
   def handle_event("filter_protocol", %{"protocol" => protocol}, socket) do
     streams = StreamMonitor.list_streams()
     filter_protocol = String.to_existing_atom(protocol)
-    {:noreply, assign(socket, streams: filter_streams(streams, %{socket.assigns | filter_protocol: filter_protocol}), filter_protocol: filter_protocol)}
+
+    {:noreply,
+     assign(socket,
+       streams: filter_streams(streams, %{socket.assigns | filter_protocol: filter_protocol}),
+       filter_protocol: filter_protocol
+     )}
   end
 
   def handle_event("filter_state", %{"state" => ""}, socket) do
     streams = StreamMonitor.list_streams()
-    {:noreply, assign(socket, streams: filter_streams(streams, %{socket.assigns | filter_state: nil}), filter_state: nil)}
+
+    {:noreply,
+     assign(socket,
+       streams: filter_streams(streams, %{socket.assigns | filter_state: nil}),
+       filter_state: nil
+     )}
   end
 
   def handle_event("filter_state", %{"state" => state}, socket) do
     streams = StreamMonitor.list_streams()
     filter_state = String.to_existing_atom(state)
-    {:noreply, assign(socket, streams: filter_streams(streams, %{socket.assigns | filter_state: filter_state}), filter_state: filter_state)}
+
+    {:noreply,
+     assign(socket,
+       streams: filter_streams(streams, %{socket.assigns | filter_state: filter_state}),
+       filter_state: filter_state
+     )}
   end
 
   def handle_event("refresh", _params, socket) do
@@ -61,9 +81,10 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
   end
 
   defp update_stream_in_list(streams, status) do
-    index = Enum.find_index(streams, fn s ->
-      s.device_id == status.device_id and s.protocol == status.protocol
-    end)
+    index =
+      Enum.find_index(streams, fn s ->
+        s.device_id == status.device_id and s.protocol == status.protocol
+      end)
 
     case index do
       nil -> [status | streams]

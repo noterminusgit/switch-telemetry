@@ -26,8 +26,8 @@ defmodule SwitchTelemetry.Collector.StreamMonitorTest do
   end
 
   setup do
-    # Start the StreamMonitor for testing
-    start_supervised!(StreamMonitor)
+    # Reset the already-running StreamMonitor to a clean state
+    :sys.replace_state(StreamMonitor, fn _state -> %StreamMonitor{} end)
     :ok
   end
 

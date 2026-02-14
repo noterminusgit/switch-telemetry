@@ -258,7 +258,9 @@ defmodule SwitchTelemetry.CollectorTest do
   describe "toggle_subscription/1" do
     test "toggles enabled from true to false" do
       device = create_device()
-      {:ok, sub} = Collector.create_subscription(valid_subscription_attrs(device.id, %{enabled: true}))
+
+      {:ok, sub} =
+        Collector.create_subscription(valid_subscription_attrs(device.id, %{enabled: true}))
 
       assert {:ok, toggled} = Collector.toggle_subscription(sub)
       assert toggled.enabled == false
@@ -266,7 +268,9 @@ defmodule SwitchTelemetry.CollectorTest do
 
     test "toggles enabled from false to true" do
       device = create_device()
-      {:ok, sub} = Collector.create_subscription(valid_subscription_attrs(device.id, %{enabled: false}))
+
+      {:ok, sub} =
+        Collector.create_subscription(valid_subscription_attrs(device.id, %{enabled: false}))
 
       assert {:ok, toggled} = Collector.toggle_subscription(sub)
       assert toggled.enabled == true
