@@ -7,7 +7,7 @@ defmodule SwitchTelemetry.Accounts do
   import Ecto.Query
 
   alias SwitchTelemetry.Repo
-  alias SwitchTelemetry.Accounts.{User, UserToken, UserNotifier}
+  alias SwitchTelemetry.Accounts.{AdminEmail, User, UserToken, UserNotifier}
 
   ## Database getters
 
@@ -76,9 +76,18 @@ defmodule SwitchTelemetry.Accounts do
 
   """
   def register_user(attrs) do
-    %User{}
-    |> User.registration_changeset(Map.put_new(attrs, :id, Ecto.UUID.generate()))
-    |> Repo.insert()
+    result =
+      %User{}
+      |> User.registration_changeset(Map.put_new(attrs, :id, Ecto.UUID.generate()))
+      |> Repo.insert()
+
+    case result do
+      {:ok, user} ->
+        {:ok, maybe_promote_to_admin(user)}
+
+      error ->
+        error
+    end
   end
 
   @doc """
@@ -385,5 +394,143 @@ defmodule SwitchTelemetry.Accounts do
   """
   def delete_user(%User{} = user) do
     Repo.delete(user)
+  end
+
+  ## Admin Email Allowlist
+
+  @doc """
+  Returns the list of all admin emails.
+  """
+  def list_admin_emails do
+    Repo.all(from ae in AdminEmail, order_by: [asc: ae.email])
+  end
+
+  @doc """
+  Gets a single admin email.
+
+  Raises `Ecto.NoResultsError` if not found.
+  """
+  def get_admin_email!(id), do: Repo.get!(AdminEmail, id)
+
+  @doc """
+  Creates an admin email allowlist entry.
+  """
+  def create_admin_email(attrs) do
+    %AdminEmail{}
+    |> AdminEmail.changeset(attrs)
+    |> Repo.insert()
+  end
+
+  @doc """
+  Deletes an admin email allowlist entry.
+  """
+  def delete_admin_email(%AdminEmail{} = admin_email) do
+    Repo.delete(admin_email)
+  end
+
+  @doc """
+  Returns an `%Ecto.Changeset{}` for tracking admin email changes.
+  """
+  def change_admin_email(%AdminEmail{} = admin_email, attrs \\ %{}) do
+    AdminEmail.changeset(admin_email, attrs)
+  end
+
+  @doc """
+  Checks if the given email is on the admin allowlist.
+  """
+  def admin_email?(email) when is_binary(email) do
+    Repo.exists?(from ae in AdminEmail, where: ae.email == ^email)
+  end
+
+  ## Auto-promote
+
+  @doc """
+  Promotes a user to admin if their email is on the allowlist.
+  Returns the (possibly updated) user.
+  """
+  def maybe_promote_to_admin(%User{role: :admin} = user), do: user
+
+  def maybe_promote_to_admin(%User{} = user) do
+    if admin_email?(user.email) do
+      case update_user_role(user, %{role: :admin}) do
+        {:ok, updated_user} -> updated_user
+        {:error, _} -> user
+      end
+    else
+      user
+    end
+  end
+
+  ## Password generation
+
+  @doc """
+  Generates a secure random 16-character password.
+  """
+  def generate_password do
+    :crypto.strong_rand_bytes(12)
+    |> Base.url_encode64(padding: false)
+  end
+
+  ## Magic link
+
+  @doc """
+  Delivers magic link login instructions to the given user.
+  """
+  def deliver_magic_link_instructions(%User{} = user, magic_link_url_fun)
+      when is_function(magic_link_url_fun, 1) do
+    {encoded_token, user_token} = UserToken.build_email_token(user, "magic_link")
+    Repo.insert!(user_token)
+    UserNotifier.deliver_magic_link(user, magic_link_url_fun.(encoded_token))
+  end
+
+  @doc """
+  Verifies a magic link token and returns the user.
+  Deletes all magic_link tokens for the user after verification (single-use).
+  """
+  def verify_magic_link_token(token) do
+    with {:ok, query} <- UserToken.verify_email_token_query(token, "magic_link"),
+         %User{} = user <- Repo.one(query) do
+      Repo.delete_all(UserToken.by_user_and_contexts_query(user, ["magic_link"]))
+      {:ok, user}
+    else
+      _ -> :error
+    end
+  end
+
+  @doc """
+  Gets or creates a user for magic link login.
+
+  If the user exists, returns `{:ok, user}`.
+  If not, creates a new admin account with a generated password,
+  auto-confirms it, and emails the generated password.
+  """
+  def get_or_create_user_for_magic_link(email) do
+    case get_user_by_email(email) do
+      %User{} = user ->
+        {:ok, user}
+
+      nil ->
+        password = generate_password()
+
+        attrs = %{
+          email: email,
+          password: password,
+          role: :admin
+        }
+
+        case register_user(attrs) do
+          {:ok, user} ->
+            # Auto-confirm the account
+            user
+            |> User.confirm_changeset()
+            |> Repo.update!()
+
+            UserNotifier.deliver_generated_password(user, password)
+            {:ok, Repo.get!(User, user.id)}
+
+          {:error, changeset} ->
+            {:error, changeset}
+        end
+    end
   end
 end

@@ -40,6 +40,8 @@ defmodule SwitchTelemetryWeb.Router do
 
     get "/users/log_in", UserSessionController, :new
     post "/users/log_in", UserSessionController, :create
+    post "/users/magic_link", UserSessionController, :create_magic_link
+    get "/users/magic_link/:token", UserSessionController, :magic_link_callback
   end
 
   ## Authenticated routes (non-LiveView)
@@ -95,6 +97,8 @@ defmodule SwitchTelemetryWeb.Router do
       pipe_through [:browser, :require_authenticated_user, :require_admin]
 
       live "/users", UserLive.Index, :index
+      live "/admin_emails", AdminEmailLive.Index, :index
+      live "/admin_emails/new", AdminEmailLive.Index, :new
     end
   end
 

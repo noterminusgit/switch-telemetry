@@ -46,4 +46,38 @@ defmodule SwitchTelemetry.Accounts.UserNotifier do
     If you didn't create an account, please ignore this.
     """)
   end
+
+  @doc """
+  Deliver a magic link for passwordless login.
+  """
+  def deliver_magic_link(user, url) do
+    deliver(user.email, "Sign in to Switch Telemetry", """
+    Hi #{user.email},
+
+    You can sign in to Switch Telemetry by visiting the URL below:
+
+    #{url}
+
+    This link is valid for 24 hours and can only be used once.
+
+    If you didn't request this, please ignore this email.
+    """)
+  end
+
+  @doc """
+  Deliver a generated password to a new user account.
+  """
+  def deliver_generated_password(user, password) do
+    deliver(user.email, "Your Switch Telemetry account", """
+    Hi #{user.email},
+
+    An admin account has been created for you on Switch Telemetry.
+
+    Your temporary password is:
+
+      #{password}
+
+    Please log in and change your password at your earliest convenience.
+    """)
+  end
 end

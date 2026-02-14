@@ -22,4 +22,22 @@
       </.button>
     </:actions>
   </.simple_form>
+
+  <div class="mt-8 border-t border-gray-200 pt-6">
+    <.header class="text-center">
+      Admin Magic Link
+      <:subtitle>
+        Passwordless sign-in for allowlisted admin emails
+      </:subtitle>
+    </.header>
+
+    <.simple_form :let={f} for={to_form(%{}, as: "magic_link")} id="magic_link_form" action={~p"/users/magic_link"}>
+      <.input field={f[:email]} type="email" label="Email" required />
+      <:actions>
+        <.button phx-disable-with="Sending..." class="w-full">
+          Send magic link <span aria-hidden="true">&rarr;</span>
+        </.button>
+      </:actions>
+    </.simple_form>
+  </div>
 </div>

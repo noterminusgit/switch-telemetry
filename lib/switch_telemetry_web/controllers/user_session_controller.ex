@@ -20,6 +20,8 @@ defmodule SwitchTelemetryWeb.UserSessionController do
     %{"email" => email, "password" => password} = user_params
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
+      user = Accounts.maybe_promote_to_admin(user)
+
       conn
       |> put_flash(:info, "Welcome back!")
       |> UserAuth.log_in_user(user, user_params)
@@ -29,6 +31,40 @@ defmodule SwitchTelemetryWeb.UserSessionController do
         error_message: "Invalid email or password",
         form: to_form(%{}, as: "user")
       )
+    end
+  end
+
+  def create_magic_link(conn, %{"magic_link" => %{"email" => email}}) do
+    if Accounts.admin_email?(email) do
+      {:ok, user} = Accounts.get_or_create_user_for_magic_link(email)
+
+      Accounts.deliver_magic_link_instructions(user, fn token ->
+        url(conn, ~p"/users/magic_link/#{token}")
+      end)
+    end
+
+    # Always show the same message to prevent enumeration
+    conn
+    |> put_flash(
+      :info,
+      "If your email is on the admin allowlist, you will receive a sign-in link shortly."
+    )
+    |> redirect(to: ~p"/users/log_in")
+  end
+
+  def magic_link_callback(conn, %{"token" => token}) do
+    case Accounts.verify_magic_link_token(token) do
+      {:ok, user} ->
+        user = Accounts.maybe_promote_to_admin(user)
+
+        conn
+        |> put_flash(:info, "Welcome back!")
+        |> UserAuth.log_in_user(user)
+
+      :error ->
+        conn
+        |> put_flash(:error, "Magic link is invalid or has expired.")
+        |> redirect(to: ~p"/users/log_in")
     end
   end
 
