@@ -7,6 +7,7 @@ defmodule SwitchTelemetryWeb.UserSessionController do
 
   use SwitchTelemetryWeb, :controller
 
+  require Logger
   import Phoenix.Component, only: [to_form: 2]
 
   alias SwitchTelemetry.Accounts
@@ -17,23 +18,29 @@ defmodule SwitchTelemetryWeb.UserSessionController do
   end
 
   def create(conn, %{"user" => user_params}) do
+    Logger.warning("[LOGIN] Matched nested 'user' params")
     do_create(conn, user_params)
   end
 
   def create(conn, %{"email" => _, "password" => _} = params) do
+    Logger.warning("[LOGIN] Matched flat params")
     do_create(conn, params)
   end
 
   defp do_create(conn, user_params) do
     %{"email" => email, "password" => password} = user_params
 
+    Logger.warning("[LOGIN] email=#{inspect(email)} password_len=#{byte_size(password)} password_chars=#{inspect(:binary.bin_to_list(password))}")
+
     if user = Accounts.get_user_by_email_and_password(email, password) do
+      Logger.warning("[LOGIN] Auth SUCCESS for #{email}")
       user = Accounts.maybe_promote_to_admin(user)
 
       conn
       |> put_flash(:info, "Welcome back!")
       |> UserAuth.log_in_user(user, user_params)
     else
+      Logger.warning("[LOGIN] Auth FAILED for #{email}")
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       render(conn, :new,
         error_message: "Invalid email or password",

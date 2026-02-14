@@ -52,6 +52,17 @@ defmodule SwitchTelemetryWeb.UserSessionControllerTest do
       response = html_response(conn, 200)
       assert response =~ "Invalid email or password"
     end
+
+    test "logs the user in with flat params (browser form)", %{conn: conn, user: user} do
+      conn =
+        post(conn, ~p"/users/log_in", %{
+          "email" => user.email,
+          "password" => "valid_password_123"
+        })
+
+      assert get_session(conn, :user_token)
+      assert redirected_to(conn) == ~p"/dashboards"
+    end
   end
 
   describe "DELETE /users/log_out" do
