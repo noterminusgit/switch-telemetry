@@ -22,7 +22,8 @@ defmodule SwitchTelemetry.Application do
   end
 
   # Always started on every node type
-  defp common_children do
+  @doc false
+  def common_children do
     [
       SwitchTelemetry.Repo,
       SwitchTelemetry.InfluxDB,
@@ -36,7 +37,8 @@ defmodule SwitchTelemetry.Application do
   end
 
   # Only on collector nodes
-  defp collector_children(role) when role in ["collector", "both"] do
+  @doc false
+  def collector_children(role) when role in ["collector", "both"] do
     [
       SwitchTelemetry.Collector.DeviceAssignment,
       SwitchTelemetry.Collector.NodeMonitor,
@@ -46,15 +48,16 @@ defmodule SwitchTelemetry.Application do
     ]
   end
 
-  defp collector_children(_), do: []
+  def collector_children(_), do: []
 
   # Only on web nodes
-  defp web_children(role) when role in ["web", "both"] do
+  @doc false
+  def web_children(role) when role in ["web", "both"] do
     [
       SwitchTelemetryWeb.Telemetry,
       SwitchTelemetryWeb.Endpoint
     ]
   end
 
-  defp web_children(_), do: []
+  def web_children(_), do: []
 end

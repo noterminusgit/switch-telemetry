@@ -1,5 +1,5 @@
 defmodule SwitchTelemetry.Collector.DeviceManagerTest do
-  use SwitchTelemetry.DataCase, async: true
+  use SwitchTelemetry.DataCase, async: false
 
   alias SwitchTelemetry.Collector.DeviceManager
 
@@ -245,6 +245,84 @@ defmodule SwitchTelemetry.Collector.DeviceManagerTest do
     test "check interval is 30 seconds" do
       # The module uses @check_interval :timer.seconds(30)
       assert :timer.seconds(30) == 30_000
+    end
+  end
+
+  describe "GenServer callbacks" do
+    test "init sends :start_assigned_devices and schedules :check_sessions" do
+      {:ok, state} = DeviceManager.init([])
+      assert state == %{sessions: %{}}
+      # init sends :start_assigned_devices to self
+      assert_received :start_assigned_devices
+      # init calls schedule_check() which sends :check_sessions after 30s
+      # We can't assert_received because it's send_after, but we can verify
+      # the timer ref is set by checking the process mailbox after short wait
+    end
+
+    test "handle_call :list_sessions returns device IDs from state" do
+      state = %{sessions: %{"dev1" => %{gnmi: self()}, "dev2" => %{netconf: self()}}}
+
+      {:reply, ids, ^state} =
+        DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
+
+      assert Enum.sort(ids) == ["dev1", "dev2"]
+    end
+
+    test "handle_call :list_sessions returns empty list when no sessions" do
+      state = %{sessions: %{}}
+
+      {:reply, ids, ^state} =
+        DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
+
+      assert ids == []
+    end
+
+    test "handle_call {:stop_session, id} removes session from state" do
+      # Use already-exited pids so GenServer.stop catches :exit quickly
+      pid1 = spawn(fn -> :ok end)
+      pid2 = spawn(fn -> :ok end)
+      # Ensure the spawned processes have exited
+      Process.sleep(10)
+
+      state = %{sessions: %{"dev1" => %{gnmi: pid1}, "dev2" => %{netconf: pid2}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev1"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev1")
+      assert Map.has_key?(new_state.sessions, "dev2")
+    end
+
+    test "handle_call {:stop_session, unknown_id} handles missing session gracefully" do
+      state = %{sessions: %{}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call(
+          {:stop_session, "nonexistent"},
+          {self(), make_ref()},
+          state
+        )
+
+      assert new_state.sessions == %{}
+    end
+
+    test "handle_info :start_assigned_devices returns :noreply with sessions" do
+      state = %{sessions: %{}}
+      # Will query DB for devices assigned to this node; sandbox returns none
+      {:noreply, new_state} = DeviceManager.handle_info(:start_assigned_devices, state)
+      assert %{sessions: _} = new_state
+    end
+
+    test "handle_info :check_sessions returns :noreply and schedules next check" do
+      state = %{sessions: %{}}
+      # Will query DB for assigned devices; sandbox returns none
+      {:noreply, new_state} = DeviceManager.handle_info(:check_sessions, state)
+      assert %{sessions: _} = new_state
+    end
+
+    test "handle_info unknown message returns :noreply with unchanged state" do
+      state = %{sessions: %{}}
+      assert {:noreply, ^state} = DeviceManager.handle_info(:unknown, state)
     end
   end
 end

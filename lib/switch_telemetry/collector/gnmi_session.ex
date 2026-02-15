@@ -53,7 +53,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def handle_info(:connect, state) do
     target = "#{state.device.ip_address}:#{state.device.gnmi_port}"
 
-    case GRPC.Stub.connect(target, []) do
+    case grpc_client().connect(target, []) do
       {:ok, channel} ->
         Logger.info("gNMI connected to #{state.device.hostname} at #{target}")
 
@@ -87,8 +87,8 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
          }}
     }
 
-    stream = Gnmi.GNMI.Stub.subscribe(state.channel)
-    GRPC.Stub.send_request(stream, subscribe_request)
+    stream = grpc_client().subscribe(state.channel)
+    grpc_client().send_request(stream, subscribe_request)
 
     task = Task.async(fn -> read_stream(stream, state.device) end)
 
@@ -116,7 +116,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   @impl true
   def terminate(_reason, state) do
     if state.channel do
-      GRPC.Stub.disconnect(state.channel)
+      grpc_client().disconnect(state.channel)
     end
 
     :ok
@@ -125,7 +125,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # --- Private ---
 
   defp read_stream(stream, device) do
-    case GRPC.Stub.recv(stream) do
+    case grpc_client().recv(stream) do
       {:ok, response_stream} ->
         response_stream
         |> Stream.each(fn
@@ -271,5 +271,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       )
 
     Process.send_after(self(), :connect, delay)
+  end
+
+  defp grpc_client do
+    Application.get_env(
+      :switch_telemetry,
+      :grpc_client,
+      SwitchTelemetry.Collector.DefaultGrpcClient
+    )
   end
 end

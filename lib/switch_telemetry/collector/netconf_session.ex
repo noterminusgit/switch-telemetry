@@ -76,17 +76,17 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       end
 
     with {:ok, ssh_ref} <-
-           :ssh.connect(
+           ssh_client().connect(
              String.to_charlist(device.ip_address),
              device.netconf_port,
              ssh_opts
            ),
          {:ok, channel_id} <-
-           :ssh_connection.session_channel(ssh_ref, @channel_timeout),
+           ssh_client().session_channel(ssh_ref, @channel_timeout),
          :success <-
-           :ssh_connection.subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
+           ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
       Logger.info("NETCONF connected to #{device.hostname}")
-      :ssh_connection.send(ssh_ref, channel_id, @netconf_hello)
+      ssh_client().send(ssh_ref, channel_id, @netconf_hello)
 
       Devices.update_device(device, %{
         status: :active,
@@ -114,7 +114,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     state =
       Enum.reduce(paths, state, fn path, acc ->
         rpc = build_get_rpc(acc.message_id, path)
-        :ssh_connection.send(acc.ssh_ref, acc.channel_id, rpc)
+        ssh_client().send(acc.ssh_ref, acc.channel_id, rpc)
         %{acc | message_id: acc.message_id + 1}
       end)
 
@@ -270,7 +270,15 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     end
 
     if state.ssh_ref do
-      :ssh.close(state.ssh_ref)
+      ssh_client().close(state.ssh_ref)
     end
+  end
+
+  defp ssh_client do
+    Application.get_env(
+      :switch_telemetry,
+      :ssh_client,
+      SwitchTelemetry.Collector.DefaultSshClient
+    )
   end
 end
