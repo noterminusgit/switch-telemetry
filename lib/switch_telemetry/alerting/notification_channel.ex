@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Alerting.NotificationChannel do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "notification_channels" do
@@ -18,6 +20,7 @@ defmodule SwitchTelemetry.Alerting.NotificationChannel do
   @required_fields ~w(id name type config)a
   @optional_fields ~w(enabled)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(channel, attrs) do
     channel
     |> cast(attrs, @required_fields ++ @optional_fields)

@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
   alias SwitchTelemetry.Collector
 
   @impl true
+  @spec update(map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def update(assigns, socket) do
     {:ok,
      socket
@@ -26,6 +27,8 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("save", %{"subscription" => subscription_params}, socket) do
     subscription_params = prepare_params(subscription_params, socket)
 
@@ -83,6 +86,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div>

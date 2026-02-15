@@ -15,6 +15,7 @@ defmodule SwitchTelemetry.Workers.AlertNotifier do
   alias SwitchTelemetry.Alerting.Notifier
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: :ok | {:error, term()}
   def perform(%Oban.Job{args: %{"alert_event_id" => event_id, "channel_id" => channel_id}}) do
     event = Repo.get!(AlertEvent, event_id) |> Repo.preload(:alert_rule)
     channel = Repo.get!(NotificationChannel, channel_id)

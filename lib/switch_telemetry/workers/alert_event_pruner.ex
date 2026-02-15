@@ -13,6 +13,7 @@ defmodule SwitchTelemetry.Workers.AlertEventPruner do
   @default_min_keep_per_rule 100
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: {:ok, map()}
   def perform(_job) do
     max_age_days =
       Application.get_env(:switch_telemetry, :alert_event_max_age_days, @default_max_age_days)

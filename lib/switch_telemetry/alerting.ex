@@ -15,19 +15,24 @@ defmodule SwitchTelemetry.Alerting do
 
   # --- AlertRule CRUD ---
 
+  @spec list_alert_rules() :: [AlertRule.t()]
   def list_alert_rules do
     Repo.all(AlertRule)
   end
 
+  @spec list_enabled_rules() :: [AlertRule.t()]
   def list_enabled_rules do
     from(r in AlertRule, where: r.enabled == true)
     |> Repo.all()
   end
 
+  @spec get_alert_rule!(String.t()) :: AlertRule.t()
   def get_alert_rule!(id), do: Repo.get!(AlertRule, id)
 
+  @spec get_alert_rule(String.t()) :: AlertRule.t() | nil
   def get_alert_rule(id), do: Repo.get(AlertRule, id)
 
+  @spec create_alert_rule(map()) :: {:ok, AlertRule.t()} | {:error, Ecto.Changeset.t()}
   def create_alert_rule(attrs) do
     attrs = maybe_put_id(attrs)
 
@@ -36,24 +41,30 @@ defmodule SwitchTelemetry.Alerting do
     |> Repo.insert()
   end
 
+  @spec update_alert_rule(AlertRule.t(), map()) ::
+          {:ok, AlertRule.t()} | {:error, Ecto.Changeset.t()}
   def update_alert_rule(%AlertRule{} = rule, attrs) do
     rule
     |> AlertRule.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_alert_rule(AlertRule.t()) :: {:ok, AlertRule.t()} | {:error, Ecto.Changeset.t()}
   def delete_alert_rule(%AlertRule{} = rule) do
     Repo.delete(rule)
   end
 
   # --- NotificationChannel CRUD ---
 
+  @spec list_channels() :: [NotificationChannel.t()]
   def list_channels do
     Repo.all(NotificationChannel)
   end
 
+  @spec get_channel!(String.t()) :: NotificationChannel.t()
   def get_channel!(id), do: Repo.get!(NotificationChannel, id)
 
+  @spec create_channel(map()) :: {:ok, NotificationChannel.t()} | {:error, Ecto.Changeset.t()}
   def create_channel(attrs) do
     attrs = maybe_put_id(attrs)
 
@@ -62,18 +73,24 @@ defmodule SwitchTelemetry.Alerting do
     |> Repo.insert()
   end
 
+  @spec update_channel(NotificationChannel.t(), map()) ::
+          {:ok, NotificationChannel.t()} | {:error, Ecto.Changeset.t()}
   def update_channel(%NotificationChannel{} = channel, attrs) do
     channel
     |> NotificationChannel.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_channel(NotificationChannel.t()) ::
+          {:ok, NotificationChannel.t()} | {:error, Ecto.Changeset.t()}
   def delete_channel(%NotificationChannel{} = channel) do
     Repo.delete(channel)
   end
 
   # --- AlertChannelBinding ---
 
+  @spec bind_channel(String.t(), String.t()) ::
+          {:ok, AlertChannelBinding.t()} | {:error, Ecto.Changeset.t()}
   def bind_channel(rule_id, channel_id) do
     now = DateTime.utc_now()
 
@@ -89,6 +106,8 @@ defmodule SwitchTelemetry.Alerting do
     |> Repo.insert()
   end
 
+  @spec unbind_channel(String.t(), String.t()) ::
+          {:ok, AlertChannelBinding.t()} | {:error, :not_found} | {:error, Ecto.Changeset.t()}
   def unbind_channel(rule_id, channel_id) do
     query =
       from(b in AlertChannelBinding,
@@ -101,6 +120,7 @@ defmodule SwitchTelemetry.Alerting do
     end
   end
 
+  @spec list_channels_for_rule(String.t()) :: [NotificationChannel.t()]
   def list_channels_for_rule(rule_id) do
     from(nc in NotificationChannel,
       join: b in AlertChannelBinding,
@@ -112,6 +132,7 @@ defmodule SwitchTelemetry.Alerting do
 
   # --- AlertEvent ---
 
+  @spec create_event(map()) :: {:ok, AlertEvent.t()} | {:error, Ecto.Changeset.t()}
   def create_event(attrs) do
     attrs =
       attrs
@@ -133,6 +154,7 @@ defmodule SwitchTelemetry.Alerting do
     |> Repo.insert()
   end
 
+  @spec list_events(String.t(), keyword()) :: [AlertEvent.t()]
   def list_events(rule_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
 
@@ -144,6 +166,7 @@ defmodule SwitchTelemetry.Alerting do
     |> Repo.all()
   end
 
+  @spec list_recent_events(keyword()) :: [AlertEvent.t()]
   def list_recent_events(opts \\ []) do
     limit = Keyword.get(opts, :limit, 50)
 
@@ -156,6 +179,8 @@ defmodule SwitchTelemetry.Alerting do
 
   # --- State Management ---
 
+  @spec update_rule_state(AlertRule.t(), atom(), keyword()) ::
+          {:ok, AlertRule.t()} | {:error, Ecto.Changeset.t()}
   def update_rule_state(%AlertRule{} = rule, new_state, opts \\ []) do
     now = Keyword.get(opts, :timestamp, DateTime.utc_now())
 

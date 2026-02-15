@@ -5,6 +5,7 @@ defmodule SwitchTelemetryWeb.AlertLive.RuleForm do
   alias SwitchTelemetry.Devices
 
   @impl true
+  @spec mount(Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(socket) do
     devices = Devices.list_devices()
 
@@ -16,6 +17,7 @@ defmodule SwitchTelemetryWeb.AlertLive.RuleForm do
   end
 
   @impl true
+  @spec update(map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def update(assigns, socket) do
     {:ok,
      socket
@@ -42,6 +44,8 @@ defmodule SwitchTelemetryWeb.AlertLive.RuleForm do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("save_rule", %{"rule" => rule_params}, socket) do
     rule_params = parse_rule_params(rule_params, socket.assigns.rule.id)
 
@@ -91,6 +95,7 @@ defmodule SwitchTelemetryWeb.AlertLive.RuleForm do
   defp maybe_parse_threshold(params), do: params
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div>

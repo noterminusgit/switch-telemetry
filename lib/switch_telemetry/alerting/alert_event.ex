@@ -1,6 +1,8 @@
 defmodule SwitchTelemetry.Alerting.AlertEvent do
   use Ecto.Schema
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "alert_events" do

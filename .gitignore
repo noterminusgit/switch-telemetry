@@ -36,6 +36,9 @@ npm-debug.log
 /.cache/
 assets/.cache/
 
+# Dialyzer PLTs
+/priv/plts/
+
 # Secret and credential files
 .env
 .env.*

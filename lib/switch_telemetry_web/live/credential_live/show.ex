@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Show do
   alias SwitchTelemetry.Devices
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => id}, _session, socket) do
     credential = Devices.get_credential!(id)
 
@@ -15,6 +16,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Show do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-3xl mx-auto">

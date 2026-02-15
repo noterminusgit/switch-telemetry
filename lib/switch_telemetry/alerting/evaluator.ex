@@ -82,7 +82,7 @@ defmodule SwitchTelemetry.Alerting.Evaluator do
   Expects metrics ordered descending by time (newest first). Returns `nil`
   if fewer than 2 data points or if the elapsed time is zero.
   """
-  @spec calculate_rate([map()], integer()) :: number() | nil
+  @spec calculate_rate([map()], integer()) :: float() | nil
   def calculate_rate(metrics, _duration_seconds) when length(metrics) < 2, do: nil
 
   def calculate_rate(metrics, _duration_seconds) do

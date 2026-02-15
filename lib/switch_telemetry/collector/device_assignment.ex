@@ -14,6 +14,7 @@ defmodule SwitchTelemetry.Collector.DeviceAssignment do
   alias SwitchTelemetry.{Devices, Repo}
   alias SwitchTelemetry.Devices.Device
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
@@ -21,6 +22,7 @@ defmodule SwitchTelemetry.Collector.DeviceAssignment do
   @doc """
   Returns the collector node that should own the given device.
   """
+  @spec get_owner(String.t()) :: {:ok, node()} | {:error, :no_collectors}
   def get_owner(device_id) do
     GenServer.call(__MODULE__, {:get_owner, device_id})
   end
@@ -28,6 +30,7 @@ defmodule SwitchTelemetry.Collector.DeviceAssignment do
   @doc """
   Forces a reassignment of all devices based on the current hash ring.
   """
+  @spec rebalance() :: :ok
   def rebalance do
     GenServer.cast(__MODULE__, :rebalance)
   end

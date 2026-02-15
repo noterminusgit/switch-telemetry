@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
   alias SwitchTelemetry.Accounts
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
@@ -17,6 +18,7 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <.header class="text-center">
@@ -79,6 +81,8 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("validate_email", params, socket) do
     %{"current_password" => _password, "user" => user_params} = params
 

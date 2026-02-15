@@ -10,6 +10,8 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   # Reset password tokens valid for 1 day
   @reset_password_validity_in_days 1
 
+  @type t :: %__MODULE__{}
+
   @derive {Inspect, except: [:token]}
 
   schema "user_tokens" do
@@ -22,12 +24,14 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   end
 
   @doc "Generates a session token."
+  @spec build_session_token(SwitchTelemetry.Accounts.User.t()) :: {binary(), t()}
   def build_session_token(user) do
     token = :crypto.strong_rand_bytes(@rand_size)
     {token, %__MODULE__{token: token, context: "session", user_id: user.id}}
   end
 
   @doc "Checks if the session token is valid and returns its query."
+  @spec verify_session_token_query(binary()) :: {:ok, Ecto.Query.t()}
   def verify_session_token_query(token) do
     query =
       from t in __MODULE__,
@@ -40,6 +44,7 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   end
 
   @doc "Builds a hashed token for password reset."
+  @spec build_email_token(SwitchTelemetry.Accounts.User.t(), String.t()) :: {String.t(), t()}
   def build_email_token(user, context) do
     build_hashed_token(user, context, user.email)
   end
@@ -58,6 +63,7 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   end
 
   @doc "Checks if the email token is valid and returns its query."
+  @spec verify_email_token_query(String.t(), String.t()) :: {:ok, Ecto.Query.t()} | :error
   def verify_email_token_query(token, context) do
     case Base.url_decode64(token, padding: false) do
       {:ok, decoded_token} ->
@@ -78,6 +84,8 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   end
 
   @doc "Returns the token struct for the given context."
+  @spec by_user_and_contexts_query(SwitchTelemetry.Accounts.User.t(), :all | [String.t()]) ::
+          Ecto.Query.t()
   def by_user_and_contexts_query(user, :all) do
     from t in __MODULE__, where: t.user_id == ^user.id
   end
@@ -87,6 +95,7 @@ defmodule SwitchTelemetry.Accounts.UserToken do
   end
 
   @doc "Returns the token struct matching the given token value and context."
+  @spec token_and_context_query(binary(), String.t()) :: Ecto.Query.t()
   def token_and_context_query(token, context) do
     from t in __MODULE__, where: t.token == ^token and t.context == ^context
   end

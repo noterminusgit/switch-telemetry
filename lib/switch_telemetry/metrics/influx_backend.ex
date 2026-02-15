@@ -7,6 +7,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   @behaviour SwitchTelemetry.Metrics.Backend
 
   alias SwitchTelemetry.InfluxDB
+  alias SwitchTelemetry.Metrics.Backend
 
   @valid_bucket_sizes [
     "10 seconds",
@@ -18,6 +19,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   ]
 
   @impl true
+  @spec insert_batch([map()]) :: {non_neg_integer(), nil}
   def insert_batch([]), do: {0, nil}
 
   def insert_batch(metrics) when is_list(metrics) do
@@ -49,6 +51,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   @impl true
+  @spec get_latest(String.t(), keyword()) :: [map()]
   def get_latest(device_id, opts \\ []) do
     limit = Keyword.get(opts, :limit, 100)
     minutes = Keyword.get(opts, :minutes, 5)
@@ -74,6 +77,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   @impl true
+  @spec query(String.t(), String.t(), Backend.time_range()) :: [map()]
   def query(device_id, path, time_range) do
     duration_seconds = DateTime.diff(time_range.end, time_range.start)
 
@@ -90,6 +94,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   @impl true
+  @spec query_raw(String.t(), String.t(), String.t(), Backend.time_range()) :: [map()]
   def query_raw(device_id, path, bucket_size, time_range)
       when bucket_size in @valid_bucket_sizes do
     bucket = influx_config(:bucket)
@@ -143,6 +148,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   @impl true
+  @spec query_rate(String.t(), String.t(), String.t(), Backend.time_range()) :: [map()]
   def query_rate(device_id, path, bucket_size, time_range)
       when bucket_size in @valid_bucket_sizes do
     bucket = influx_config(:bucket)

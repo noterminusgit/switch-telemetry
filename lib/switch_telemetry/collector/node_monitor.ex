@@ -12,10 +12,12 @@ defmodule SwitchTelemetry.Collector.NodeMonitor do
 
   @heartbeat_interval :timer.seconds(15)
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @spec cluster_status() :: %{self: node(), nodes: [node()], node_count: non_neg_integer()}
   def cluster_status do
     GenServer.call(__MODULE__, :cluster_status)
   end

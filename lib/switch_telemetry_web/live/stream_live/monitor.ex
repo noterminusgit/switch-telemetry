@@ -4,16 +4,17 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
   alias SwitchTelemetry.Collector.StreamMonitor
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     if connected?(socket) do
       StreamMonitor.subscribe()
     end
 
-    streams = StreamMonitor.list_streams()
+    stream_list = StreamMonitor.list_streams()
 
     {:ok,
      assign(socket,
-       streams: streams,
+       stream_list: stream_list,
        page_title: "Stream Monitor",
        filter_protocol: nil,
        filter_state: nil
@@ -21,63 +22,68 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
   end
 
   @impl true
+  @spec handle_info(term(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_info({:stream_update, status}, socket) do
-    streams = update_stream_in_list(socket.assigns.streams, status)
-    {:noreply, assign(socket, streams: filter_streams(streams, socket.assigns))}
+    stream_list = update_stream_in_list(socket.assigns.stream_list, status)
+    {:noreply, assign(socket, stream_list: filter_streams(stream_list, socket.assigns))}
   end
 
-  def handle_info({:streams_full, streams}, socket) do
-    {:noreply, assign(socket, streams: filter_streams(streams, socket.assigns))}
+  def handle_info({:streams_full, stream_list}, socket) do
+    {:noreply, assign(socket, stream_list: filter_streams(stream_list, socket.assigns))}
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("filter_protocol", %{"protocol" => ""}, socket) do
-    streams = StreamMonitor.list_streams()
+    stream_list = StreamMonitor.list_streams()
 
     {:noreply,
      assign(socket,
-       streams: filter_streams(streams, %{socket.assigns | filter_protocol: nil}),
+       stream_list: filter_streams(stream_list, %{socket.assigns | filter_protocol: nil}),
        filter_protocol: nil
      )}
   end
 
   def handle_event("filter_protocol", %{"protocol" => protocol}, socket) do
-    streams = StreamMonitor.list_streams()
+    stream_list = StreamMonitor.list_streams()
     filter_protocol = String.to_existing_atom(protocol)
 
     {:noreply,
      assign(socket,
-       streams: filter_streams(streams, %{socket.assigns | filter_protocol: filter_protocol}),
+       stream_list:
+         filter_streams(stream_list, %{socket.assigns | filter_protocol: filter_protocol}),
        filter_protocol: filter_protocol
      )}
   end
 
   def handle_event("filter_state", %{"state" => ""}, socket) do
-    streams = StreamMonitor.list_streams()
+    stream_list = StreamMonitor.list_streams()
 
     {:noreply,
      assign(socket,
-       streams: filter_streams(streams, %{socket.assigns | filter_state: nil}),
+       stream_list: filter_streams(stream_list, %{socket.assigns | filter_state: nil}),
        filter_state: nil
      )}
   end
 
   def handle_event("filter_state", %{"state" => state}, socket) do
-    streams = StreamMonitor.list_streams()
+    stream_list = StreamMonitor.list_streams()
     filter_state = String.to_existing_atom(state)
 
     {:noreply,
      assign(socket,
-       streams: filter_streams(streams, %{socket.assigns | filter_state: filter_state}),
+       stream_list: filter_streams(stream_list, %{socket.assigns | filter_state: filter_state}),
        filter_state: filter_state
      )}
   end
 
   def handle_event("refresh", _params, socket) do
-    streams = StreamMonitor.list_streams()
-    {:noreply, assign(socket, streams: filter_streams(streams, socket.assigns))}
+    stream_list = StreamMonitor.list_streams()
+    {:noreply, assign(socket, stream_list: filter_streams(stream_list, socket.assigns))}
   end
 
   defp update_stream_in_list(streams, status) do
@@ -106,6 +112,7 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
   defp filter_by_state(streams, state), do: Enum.filter(streams, &(&1.state == state))
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">
@@ -143,17 +150,17 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <.stat_card
           title="Total Streams"
-          value={length(@streams)}
+          value={length(@stream_list)}
           color="gray"
         />
         <.stat_card
           title="Connected"
-          value={Enum.count(@streams, &(&1.state == :connected))}
+          value={Enum.count(@stream_list, &(&1.state == :connected))}
           color="green"
         />
         <.stat_card
           title="Disconnected"
-          value={Enum.count(@streams, &(&1.state == :disconnected))}
+          value={Enum.count(@stream_list, &(&1.state == :disconnected))}
           color="red"
         />
       </div>
@@ -172,7 +179,7 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
-            <tr :for={stream <- @streams} class="hover:bg-gray-50">
+            <tr :for={stream <- @stream_list} class="hover:bg-gray-50">
               <td class="px-6 py-4">
                 <.link navigate={~p"/devices/#{stream.device_id}"} class="text-indigo-600 hover:text-indigo-900 font-medium">
                   {stream.device_hostname || stream.device_id}
@@ -208,7 +215,7 @@ defmodule SwitchTelemetryWeb.StreamLive.Monitor do
         </table>
       </div>
 
-      <div :if={@streams == []} class="text-center py-12 text-gray-500">
+      <div :if={@stream_list == []} class="text-center py-12 text-gray-500">
         No active streams. Streams will appear when devices connect.
       </div>
     </div>

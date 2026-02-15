@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
   alias SwitchTelemetry.Devices
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => id}, _session, socket) do
     device = Devices.get_device_with_credential!(id)
     changeset = Devices.change_device(device)
@@ -19,6 +20,8 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("validate", %{"device" => device_params}, socket) do
     changeset =
       socket.assigns.device
@@ -42,6 +45,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-3xl mx-auto">

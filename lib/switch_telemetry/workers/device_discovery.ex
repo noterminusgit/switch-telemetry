@@ -13,6 +13,7 @@ defmodule SwitchTelemetry.Workers.DeviceDiscovery do
   alias SwitchTelemetry.Devices
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: :ok
   def perform(%Oban.Job{}) do
     Logger.info("Running device discovery")
 

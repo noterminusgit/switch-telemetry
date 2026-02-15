@@ -42,6 +42,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   The optional `params` map may include a `"remember_me"` key set
   to `"true"` to persist a signed cookie for extended sessions.
   """
+  @spec log_in_user(Plug.Conn.t(), SwitchTelemetry.Accounts.User.t(), map()) :: Plug.Conn.t()
   def log_in_user(conn, user, params \\ %{}) do
     token = Accounts.generate_user_session_token(user)
     user_return_to = get_session(conn, :user_return_to)
@@ -74,6 +75,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   to any connected LiveView sockets, clears the session, removes the
   remember-me cookie, and redirects to the login page.
   """
+  @spec log_out_user(Plug.Conn.t()) :: Plug.Conn.t()
   def log_out_user(conn) do
     user_token = get_session(conn, :user_token)
     user_token && Accounts.delete_user_session_token(user_token)
@@ -96,6 +98,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   the conn (either a `%User{}` or `nil`). Also assigns `:current_path`
   for layout navigation highlighting.
   """
+  @spec fetch_current_user(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def fetch_current_user(conn, _opts) do
     {user_token, conn} = ensure_user_token(conn)
     user = user_token && Accounts.get_user_by_session_token(user_token)
@@ -125,6 +128,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   Used on login/registration pages to bounce authenticated users
   back to the signed-in path.
   """
+  @spec redirect_if_user_is_authenticated(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def redirect_if_user_is_authenticated(conn, _opts) do
     if conn.assigns[:current_user] do
       conn
@@ -142,6 +146,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   post-login redirect (GET requests only), flashes an error,
   and redirects to the login page.
   """
+  @spec require_authenticated_user(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def require_authenticated_user(conn, _opts) do
     if conn.assigns[:current_user] do
       conn
@@ -160,6 +165,7 @@ defmodule SwitchTelemetryWeb.UserAuth do
   If the current user does not have the `:admin` role, flashes
   an error and redirects to the root path.
   """
+  @spec require_admin(Plug.Conn.t(), keyword()) :: Plug.Conn.t()
   def require_admin(conn, _opts) do
     if conn.assigns[:current_user] && conn.assigns[:current_user].role == :admin do
       conn
@@ -187,6 +193,8 @@ defmodule SwitchTelemetryWeb.UserAuth do
     * `:ensure_admin` - Mounts the current user, then halts the socket
       with a redirect to the root path if the user is not an admin.
   """
+  @spec on_mount(atom(), map(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:cont, Phoenix.LiveView.Socket.t()} | {:halt, Phoenix.LiveView.Socket.t()}
   def on_mount(action, params, session, socket)
 
   def on_mount(:mount_current_user, _params, session, socket) do

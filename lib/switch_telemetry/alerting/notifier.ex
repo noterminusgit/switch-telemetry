@@ -9,6 +9,7 @@ defmodule SwitchTelemetry.Alerting.Notifier do
   @doc """
   Formats a generic webhook JSON payload.
   """
+  @spec format_webhook_payload(map(), map()) :: map()
   def format_webhook_payload(event, rule) do
     %{
       "alert_rule" => rule.name,
@@ -25,6 +26,7 @@ defmodule SwitchTelemetry.Alerting.Notifier do
   @doc """
   Formats a Slack Block Kit payload for posting to a Slack webhook URL.
   """
+  @spec format_slack_payload(map(), map()) :: map()
   def format_slack_payload(event, rule) do
     %{
       "blocks" => [
@@ -52,6 +54,7 @@ defmodule SwitchTelemetry.Alerting.Notifier do
   @doc """
   Formats a Swoosh email struct for delivery via the application mailer.
   """
+  @spec format_email(map(), map(), map()) :: Swoosh.Email.t()
   def format_email(event, rule, channel_config) do
     Swoosh.Email.new()
     |> Swoosh.Email.to(channel_config["to"] || [])

@@ -5,6 +5,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
   alias SwitchTelemetry.Devices.Credential
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     credentials = Devices.list_credentials()
 
@@ -16,6 +17,8 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -30,10 +33,12 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
     socket
     |> assign(:page_title, "New Credential")
     |> assign(:credential, %Credential{id: generate_id()})
-    |> assign(:changeset, Devices.change_credential(%Credential{id: generate_id()}))
+    |> assign(:changeset, to_form(Devices.change_credential(%Credential{id: generate_id()})))
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("delete", %{"id" => id}, socket) do
     credential = Devices.get_credential!(id)
 
@@ -55,7 +60,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
       |> Devices.change_credential(credential_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, changeset: changeset)}
+    {:noreply, assign(socket, changeset: to_form(changeset))}
   end
 
   def handle_event("save", %{"credential" => credential_params}, socket) do
@@ -69,11 +74,12 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
          |> push_navigate(to: ~p"/credentials")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign(socket, changeset: to_form(changeset))}
     end
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto">

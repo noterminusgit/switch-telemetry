@@ -11,6 +11,7 @@ defmodule SwitchTelemetry.Workers.StaleSessionCleanup do
   require Logger
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: :ok
   def perform(%Oban.Job{}) do
     Logger.info("Running stale session cleanup")
 

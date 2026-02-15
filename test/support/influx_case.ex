@@ -8,6 +8,8 @@ defmodule SwitchTelemetry.InfluxCase do
 
   using do
     quote do
+      @moduletag :influx
+
       alias SwitchTelemetry.InfluxDB
       alias SwitchTelemetry.Metrics
     end

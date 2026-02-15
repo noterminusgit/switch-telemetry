@@ -5,6 +5,7 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   alias SwitchTelemetry.Alerting.{AlertRule, NotificationChannel}
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     if connected?(socket) do
       Phoenix.PubSub.subscribe(SwitchTelemetry.PubSub, "alerts")
@@ -26,6 +27,8 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -77,6 +80,8 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
     rule = Alerting.get_alert_rule!(id)
     {:ok, _updated} = Alerting.update_alert_rule(rule, %{enabled: !rule.enabled})
@@ -116,6 +121,8 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   end
 
   @impl true
+  @spec handle_info(term(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_info({:alert_event, _event}, socket) do
     rules = Alerting.list_alert_rules()
     events = Alerting.list_recent_events(limit: 20)
@@ -132,6 +139,7 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">

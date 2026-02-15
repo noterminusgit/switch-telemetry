@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Dashboards.Dashboard do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "dashboards" do
@@ -21,6 +23,7 @@ defmodule SwitchTelemetry.Dashboards.Dashboard do
   @required_fields ~w(id name)a
   @optional_fields ~w(description layout refresh_interval_ms is_public created_by tags)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(dashboard, attrs) do
     dashboard
     |> cast(attrs, @required_fields ++ @optional_fields)

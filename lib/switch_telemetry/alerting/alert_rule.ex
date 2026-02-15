@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "alert_rules" do
@@ -39,6 +41,7 @@ defmodule SwitchTelemetry.Alerting.AlertRule do
   @required_fields ~w(id name path condition)a
   @optional_fields ~w(description device_id threshold duration_seconds cooldown_seconds severity enabled state last_fired_at last_resolved_at created_by)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(rule, attrs) do
     rule
     |> cast(attrs, @required_fields ++ @optional_fields)

@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Edit do
   alias SwitchTelemetry.Devices
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => id}, _session, socket) do
     credential = Devices.get_credential!(id)
     changeset = Devices.change_credential(credential)
@@ -11,19 +12,21 @@ defmodule SwitchTelemetryWeb.CredentialLive.Edit do
     {:ok,
      assign(socket,
        credential: credential,
-       changeset: changeset,
+       changeset: to_form(changeset),
        page_title: "Edit #{credential.name}"
      )}
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("validate", %{"credential" => credential_params}, socket) do
     changeset =
       socket.assigns.credential
       |> Devices.change_credential(credential_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, changeset: changeset)}
+    {:noreply, assign(socket, changeset: to_form(changeset))}
   end
 
   def handle_event("save", %{"credential" => credential_params}, socket) do
@@ -35,11 +38,12 @@ defmodule SwitchTelemetryWeb.CredentialLive.Edit do
          |> push_navigate(to: ~p"/credentials/#{credential.id}")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign(socket, changeset: to_form(changeset))}
     end
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-3xl mx-auto">

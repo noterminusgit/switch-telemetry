@@ -13,10 +13,12 @@ defmodule SwitchTelemetryWeb.UserSessionController do
   alias SwitchTelemetry.Accounts
   alias SwitchTelemetryWeb.UserAuth
 
+  @spec new(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def new(conn, _params) do
     render(conn, :new, error_message: nil, form: to_form(%{}, as: "user"))
   end
 
+  @spec create(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def create(conn, %{"user" => user_params}) do
     Logger.warning("[LOGIN] Matched nested 'user' params")
     do_create(conn, user_params)
@@ -30,7 +32,9 @@ defmodule SwitchTelemetryWeb.UserSessionController do
   defp do_create(conn, user_params) do
     %{"email" => email, "password" => password} = user_params
 
-    Logger.warning("[LOGIN] email=#{inspect(email)} password_len=#{byte_size(password)} password_chars=#{inspect(:binary.bin_to_list(password))}")
+    Logger.warning(
+      "[LOGIN] email=#{inspect(email)} password_len=#{byte_size(password)} password_chars=#{inspect(:binary.bin_to_list(password))}"
+    )
 
     if user = Accounts.get_user_by_email_and_password(email, password) do
       Logger.warning("[LOGIN] Auth SUCCESS for #{email}")
@@ -41,6 +45,7 @@ defmodule SwitchTelemetryWeb.UserSessionController do
       |> UserAuth.log_in_user(user, user_params)
     else
       Logger.warning("[LOGIN] Auth FAILED for #{email}")
+
       # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
       render(conn, :new,
         error_message: "Invalid email or password",
@@ -49,6 +54,7 @@ defmodule SwitchTelemetryWeb.UserSessionController do
     end
   end
 
+  @spec create_magic_link(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def create_magic_link(conn, %{"magic_link" => %{"email" => email}}) do
     if Accounts.admin_email?(email) do
       {:ok, user} = Accounts.get_or_create_user_for_magic_link(email)
@@ -67,6 +73,7 @@ defmodule SwitchTelemetryWeb.UserSessionController do
     |> redirect(to: ~p"/users/log_in")
   end
 
+  @spec magic_link_callback(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def magic_link_callback(conn, %{"token" => token}) do
     case Accounts.verify_magic_link_token(token) do
       {:ok, user} ->
@@ -83,6 +90,7 @@ defmodule SwitchTelemetryWeb.UserSessionController do
     end
   end
 
+  @spec delete(Plug.Conn.t(), map()) :: Plug.Conn.t()
   def delete(conn, _params) do
     conn
     |> put_flash(:info, "Logged out successfully.")

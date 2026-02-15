@@ -2,12 +2,15 @@ defmodule SwitchTelemetry.Accounts.AdminEmail do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   schema "admin_emails" do
     field :email, :string
 
     timestamps(type: :utc_datetime_usec)
   end
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(admin_email, attrs) do
     admin_email
     |> cast(attrs, [:email])

@@ -11,7 +11,12 @@ defmodule SwitchTelemetry.MixProject do
       aliases: aliases(),
       deps: deps(),
       releases: releases(),
-      listeners: [Phoenix.CodeReloader]
+      listeners: [Phoenix.CodeReloader],
+      dialyzer: [
+        plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
+        plt_add_apps: [:mix, :ex_unit],
+        flags: [:error_handling, :underspecs]
+      ]
     ]
   end
 
@@ -77,10 +82,12 @@ defmodule SwitchTelemetry.MixProject do
       {:dns_cluster, "~> 0.1"},
       {:bandit, "~> 1.0"},
 
-      # Testing
+      # Testing & Analysis
       {:floki, ">= 0.30.0", only: :test},
       {:lazy_html, ">= 0.1.0", only: :test},
-      {:mox, "~> 1.1", only: :test}
+      {:mox, "~> 1.1", only: :test},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
+      {:stream_data, "~> 1.0", only: [:dev, :test]}
     ]
   end
 

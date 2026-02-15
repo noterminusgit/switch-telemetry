@@ -24,6 +24,8 @@ defmodule SwitchTelemetry.Collector.StreamMonitor do
 
   # Stream status structure
   defmodule StreamStatus do
+    @type t :: %__MODULE__{}
+
     defstruct [
       :device_id,
       :device_hostname,
@@ -39,34 +41,42 @@ defmodule SwitchTelemetry.Collector.StreamMonitor do
 
   # --- Public API ---
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @spec report_connected(String.t(), atom()) :: :ok
   def report_connected(device_id, protocol) do
     GenServer.cast(__MODULE__, {:connected, device_id, protocol})
   end
 
+  @spec report_disconnected(String.t(), atom(), term()) :: :ok
   def report_disconnected(device_id, protocol, reason \\ nil) do
     GenServer.cast(__MODULE__, {:disconnected, device_id, protocol, reason})
   end
 
+  @spec report_message(String.t(), atom()) :: :ok
   def report_message(device_id, protocol) do
     GenServer.cast(__MODULE__, {:message, device_id, protocol})
   end
 
+  @spec report_error(String.t(), atom(), term()) :: :ok
   def report_error(device_id, protocol, error) do
     GenServer.cast(__MODULE__, {:error, device_id, protocol, error})
   end
 
+  @spec list_streams() :: [StreamStatus.t()]
   def list_streams do
     GenServer.call(__MODULE__, :list_streams)
   end
 
+  @spec get_stream(String.t(), atom()) :: StreamStatus.t() | nil
   def get_stream(device_id, protocol) do
     GenServer.call(__MODULE__, {:get_stream, device_id, protocol})
   end
 
+  @spec subscribe() :: :ok | {:error, {:already_registered, pid()}}
   def subscribe do
     Phoenix.PubSub.subscribe(@pubsub, @topic)
   end

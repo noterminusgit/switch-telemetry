@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Collector.Subscription do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "subscriptions" do
@@ -19,6 +21,7 @@ defmodule SwitchTelemetry.Collector.Subscription do
   @required_fields ~w(id device_id paths)a
   @optional_fields ~w(mode sample_interval_ns encoding enabled)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(subscription, attrs) do
     subscription
     |> cast(attrs, @required_fields ++ @optional_fields)

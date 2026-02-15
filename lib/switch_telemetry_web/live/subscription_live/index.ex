@@ -5,6 +5,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
   alias SwitchTelemetry.Collector.Subscription
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => device_id}, _session, socket) do
     device = Devices.get_device!(device_id)
     subscriptions = Collector.list_subscriptions_for_device(device_id)
@@ -18,6 +19,8 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -51,6 +54,8 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("toggle", %{"id" => id}, socket) do
     subscription = Collector.get_subscription!(id)
     {:ok, _updated} = Collector.toggle_subscription(subscription)
@@ -70,6 +75,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">

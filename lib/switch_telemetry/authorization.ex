@@ -4,6 +4,11 @@ defmodule SwitchTelemetry.Authorization do
   alias SwitchTelemetry.Accounts.User
   alias SwitchTelemetry.Dashboards.Dashboard
 
+  @type action :: :view | :create | :edit | :delete
+  @type resource :: atom() | %Dashboard{}
+
+  @spec can?(User.t(), action(), resource()) :: boolean()
+
   # Admin can do everything
   def can?(%User{role: :admin}, _action, _resource), do: true
 

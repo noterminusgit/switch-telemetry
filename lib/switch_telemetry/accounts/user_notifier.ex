@@ -20,6 +20,8 @@ defmodule SwitchTelemetry.Accounts.UserNotifier do
   @doc """
   Deliver instructions to reset a user password.
   """
+  @spec deliver_reset_password_instructions(SwitchTelemetry.Accounts.User.t(), String.t()) ::
+          {:ok, Swoosh.Email.t()} | {:error, term()}
   def deliver_reset_password_instructions(user, url) do
     deliver(user.email, "Reset password instructions", """
     Hi #{user.email},
@@ -35,6 +37,8 @@ defmodule SwitchTelemetry.Accounts.UserNotifier do
   @doc """
   Deliver instructions to confirm account.
   """
+  @spec deliver_confirmation_instructions(SwitchTelemetry.Accounts.User.t(), String.t()) ::
+          {:ok, Swoosh.Email.t()} | {:error, term()}
   def deliver_confirmation_instructions(user, url) do
     deliver(user.email, "Confirmation instructions", """
     Hi #{user.email},
@@ -50,6 +54,8 @@ defmodule SwitchTelemetry.Accounts.UserNotifier do
   @doc """
   Deliver a magic link for passwordless login.
   """
+  @spec deliver_magic_link(SwitchTelemetry.Accounts.User.t(), String.t()) ::
+          {:ok, Swoosh.Email.t()} | {:error, term()}
   def deliver_magic_link(user, url) do
     deliver(user.email, "Sign in to Switch Telemetry", """
     Hi #{user.email},
@@ -67,6 +73,8 @@ defmodule SwitchTelemetry.Accounts.UserNotifier do
   @doc """
   Deliver a generated password to a new user account.
   """
+  @spec deliver_generated_password(SwitchTelemetry.Accounts.User.t(), String.t()) ::
+          {:ok, Swoosh.Email.t()} | {:error, term()}
   def deliver_generated_password(user, password) do
     deliver(user.email, "Your Switch Telemetry account", """
     Hi #{user.email},

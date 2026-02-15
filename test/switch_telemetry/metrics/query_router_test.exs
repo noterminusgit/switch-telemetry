@@ -69,7 +69,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
         build_metric(%{time: now, value_float: 42.5})
       ])
 
-      Process.sleep(100)
+      Process.sleep(500)
 
       time_range = %{start: DateTime.add(now, -60, :second), end: DateTime.add(now, 60, :second)}
 
@@ -125,7 +125,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
         })
       ])
 
-      Process.sleep(100)
+      Process.sleep(500)
 
       time_range = %{start: minute_start, end: DateTime.add(minute_start, 60, :second)}
 
@@ -177,7 +177,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
         })
       ])
 
-      Process.sleep(100)
+      Process.sleep(500)
 
       # Short range (< 1h) routes to raw data
       time_range = %{start: DateTime.add(now, -300, :second), end: now}
@@ -201,7 +201,7 @@ defmodule SwitchTelemetry.Metrics.QueryRouterTest do
         build_metric(%{time: t1, device_id: "dev_filter_b", path: "/cpu", value_float: 90.0})
       ])
 
-      Process.sleep(100)
+      Process.sleep(500)
 
       time_range = %{start: DateTime.add(now, -60, :second), end: now}
 

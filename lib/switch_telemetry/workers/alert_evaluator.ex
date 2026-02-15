@@ -14,6 +14,7 @@ defmodule SwitchTelemetry.Workers.AlertEvaluator do
   alias SwitchTelemetry.Metrics
 
   @impl Oban.Worker
+  @spec perform(Oban.Job.t()) :: :ok
   def perform(_job) do
     rules = Alerting.list_enabled_rules()
 

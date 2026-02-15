@@ -5,12 +5,15 @@ defmodule SwitchTelemetryWeb.DashboardLive.Index do
   alias SwitchTelemetry.Dashboards.Dashboard
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     dashboards = Dashboards.list_dashboards()
     {:ok, assign(socket, dashboards: dashboards, page_title: "Dashboards")}
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -28,6 +31,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("delete", %{"id" => id}, socket) do
     dashboard = Dashboards.get_dashboard!(id)
     {:ok, _} = Dashboards.delete_dashboard(dashboard)
@@ -66,6 +71,7 @@ defmodule SwitchTelemetryWeb.DashboardLive.Index do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">

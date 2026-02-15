@@ -7,32 +7,39 @@ defmodule SwitchTelemetry.Dashboards do
   alias SwitchTelemetry.Repo
   alias SwitchTelemetry.Dashboards.{Dashboard, Widget}
 
+  @spec list_dashboards() :: [Dashboard.t()]
   def list_dashboards do
     Repo.all(Dashboard)
   end
 
+  @spec get_dashboard!(String.t()) :: Dashboard.t()
   def get_dashboard!(id) do
     Dashboard
     |> Repo.get!(id)
     |> Repo.preload(:widgets)
   end
 
+  @spec create_dashboard(map()) :: {:ok, Dashboard.t()} | {:error, Ecto.Changeset.t()}
   def create_dashboard(attrs) do
     %Dashboard{}
     |> Dashboard.changeset(attrs)
     |> Repo.insert()
   end
 
+  @spec update_dashboard(Dashboard.t(), map()) ::
+          {:ok, Dashboard.t()} | {:error, Ecto.Changeset.t()}
   def update_dashboard(%Dashboard{} = dashboard, attrs) do
     dashboard
     |> Dashboard.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_dashboard(Dashboard.t()) :: {:ok, Dashboard.t()} | {:error, Ecto.Changeset.t()}
   def delete_dashboard(%Dashboard{} = dashboard) do
     Repo.delete(dashboard)
   end
 
+  @spec add_widget(Dashboard.t(), map()) :: {:ok, Widget.t()} | {:error, Ecto.Changeset.t()}
   def add_widget(%Dashboard{} = dashboard, widget_attrs) do
     key = if has_string_keys?(widget_attrs), do: "dashboard_id", else: :dashboard_id
 
@@ -45,17 +52,21 @@ defmodule SwitchTelemetry.Dashboards do
     end)
   end
 
+  @spec update_widget(Widget.t(), map()) :: {:ok, Widget.t()} | {:error, Ecto.Changeset.t()}
   def update_widget(%Widget{} = widget, attrs) do
     widget
     |> Widget.changeset(attrs)
     |> Repo.update()
   end
 
+  @spec delete_widget(Widget.t()) :: {:ok, Widget.t()} | {:error, Ecto.Changeset.t()}
   def delete_widget(%Widget{} = widget) do
     Repo.delete(widget)
   end
 
   @doc "Clones a dashboard and all its widgets. Returns the new dashboard."
+  @spec clone_dashboard(Dashboard.t(), String.t() | nil) ::
+          {:ok, Dashboard.t()} | {:error, Ecto.Changeset.t()}
   def clone_dashboard(%Dashboard{} = dashboard, created_by \\ nil) do
     dashboard = Repo.preload(dashboard, :widgets)
     new_id = generate_id("dash_")
@@ -104,6 +115,7 @@ defmodule SwitchTelemetry.Dashboards do
   end
 
   @doc "Returns device options [{hostname, id}] for widget query builder."
+  @spec list_device_options() :: [{String.t(), String.t()}]
   def list_device_options do
     from(d in SwitchTelemetry.Devices.Device,
       select: {d.hostname, d.id},
@@ -113,6 +125,7 @@ defmodule SwitchTelemetry.Dashboards do
   end
 
   @doc "Returns distinct metric paths seen for a device."
+  @spec list_device_metric_paths(String.t()) :: [String.t()]
   def list_device_metric_paths(device_id) do
     from(m in "metrics",
       where: m.device_id == ^device_id,
@@ -125,16 +138,19 @@ defmodule SwitchTelemetry.Dashboards do
   end
 
   @doc "Returns a changeset for dashboard editing."
+  @spec change_dashboard(Dashboard.t(), map()) :: Ecto.Changeset.t()
   def change_dashboard(%Dashboard{} = dashboard, attrs \\ %{}) do
     Dashboard.changeset(dashboard, attrs)
   end
 
   @doc "Returns a changeset for widget editing."
+  @spec change_widget(Widget.t(), map()) :: Ecto.Changeset.t()
   def change_widget(%Widget{} = widget, attrs \\ %{}) do
     Widget.changeset(widget, attrs)
   end
 
   @doc "Gets a single widget."
+  @spec get_widget!(String.t()) :: Widget.t()
   def get_widget!(id), do: Repo.get!(Widget, id)
 
   defp generate_id(prefix) do

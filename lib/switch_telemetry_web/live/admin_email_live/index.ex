@@ -5,6 +5,7 @@ defmodule SwitchTelemetryWeb.AdminEmailLive.Index do
   alias SwitchTelemetry.Accounts.AdminEmail
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     {:ok,
      socket
@@ -13,6 +14,8 @@ defmodule SwitchTelemetryWeb.AdminEmailLive.Index do
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(_params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action)}
   end
@@ -32,6 +35,7 @@ defmodule SwitchTelemetryWeb.AdminEmailLive.Index do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">
@@ -103,6 +107,8 @@ defmodule SwitchTelemetryWeb.AdminEmailLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("validate", %{"admin_email" => params}, socket) do
     changeset =
       %AdminEmail{}

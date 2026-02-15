@@ -15,18 +15,22 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
 
   @check_interval :timer.seconds(30)
 
+  @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
   end
 
+  @spec start_device_session(String.t()) :: :ok | {:error, term()}
   def start_device_session(device_id) do
     GenServer.call(__MODULE__, {:start_session, device_id})
   end
 
+  @spec stop_device_session(String.t()) :: :ok
   def stop_device_session(device_id) do
     GenServer.call(__MODULE__, {:stop_session, device_id})
   end
 
+  @spec list_sessions() :: [String.t()]
   def list_sessions do
     GenServer.call(__MODULE__, :list_sessions)
   end

@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Devices.Device do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   schema "devices" do
@@ -34,6 +36,7 @@ defmodule SwitchTelemetry.Devices.Device do
   @required_fields ~w(id hostname ip_address platform transport)a
   @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(device, attrs) do
     device
     |> cast(attrs, @required_fields ++ @optional_fields)

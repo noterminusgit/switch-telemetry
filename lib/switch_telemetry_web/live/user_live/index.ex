@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.UserLive.Index do
   alias SwitchTelemetry.Accounts
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(_params, _session, socket) do
     {:ok,
      socket
@@ -12,6 +13,7 @@ defmodule SwitchTelemetryWeb.UserLive.Index do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">
@@ -77,6 +79,8 @@ defmodule SwitchTelemetryWeb.UserLive.Index do
   end
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("change_role", %{"role" => role, "user-id" => user_id}, socket) do
     user = Accounts.get_user!(user_id)
 

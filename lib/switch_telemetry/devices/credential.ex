@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.Devices.Credential do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type t :: %__MODULE__{}
+
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
   @derive {Inspect, except: [:password, :ssh_key, :tls_key]}
@@ -21,6 +23,7 @@ defmodule SwitchTelemetry.Devices.Credential do
   @required_fields ~w(id name username)a
   @optional_fields ~w(password ssh_key tls_cert tls_key)a
 
+  @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(credential, attrs) do
     credential
     |> cast(attrs, @required_fields ++ @optional_fields)

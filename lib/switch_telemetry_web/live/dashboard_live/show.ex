@@ -7,6 +7,7 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   @max_series_points 500
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => dashboard_id}, _session, socket) do
     dashboard = Dashboards.get_dashboard!(dashboard_id)
 
@@ -25,6 +26,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   end
 
   @impl true
+  @spec handle_params(map(), String.t(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_params(params, _uri, socket) do
     {:noreply, apply_action(socket, socket.assigns.live_action, params)}
   end
@@ -48,6 +51,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   end
 
   @impl true
+  @spec handle_info(term(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_info(:load_widget_data, socket) do
     time_range = socket.assigns.time_range
 
@@ -93,6 +98,8 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
+  @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("delete_widget", %{"id" => widget_id}, socket) do
     widget = Enum.find(socket.assigns.dashboard.widgets, &(&1.id == widget_id))
 
@@ -126,6 +133,7 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   end
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">

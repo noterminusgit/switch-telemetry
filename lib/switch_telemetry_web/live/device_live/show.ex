@@ -4,6 +4,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Show do
   alias SwitchTelemetry.{Devices, Metrics}
 
   @impl true
+  @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def mount(%{"id" => id}, _session, socket) do
     device = Devices.get_device!(id)
 
@@ -20,6 +21,8 @@ defmodule SwitchTelemetryWeb.DeviceLive.Show do
   end
 
   @impl true
+  @spec handle_info(term(), Phoenix.LiveView.Socket.t()) ::
+          {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_info(:load_metrics, socket) do
     metrics = Metrics.get_latest(socket.assigns.device.id, limit: 50)
     {:noreply, assign(socket, latest_metrics: metrics)}
@@ -40,6 +43,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Show do
   def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
+  @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""
     <div class="max-w-7xl mx-auto px-4 py-8">
