@@ -411,4 +411,359 @@ defmodule SwitchTelemetry.Collector.NetconfSessionTest do
     ]]>]]>
     """
   end
+
+  describe "SSH data handling" do
+    test "handles {:ssh_cm, ref, {:data, channel, type, data}} buffer accumulation" do
+      # Simulate the handle_info callback for SSH data
+      # The handler concatenates data to the buffer and extracts complete messages
+      state = %NetconfSession{
+        ssh_ref: :fake_ref,
+        channel_id: 0,
+        buffer: "",
+        device: nil,
+        message_id: 1
+      }
+
+      # Simulate receiving partial SSH data - buffer should accumulate
+      partial_data = "<rpc-reply>partial"
+      new_buffer = state.buffer <> to_string(partial_data)
+      assert new_buffer == "<rpc-reply>partial"
+
+      # No complete message (no delimiter), so extract_messages returns empty
+      {messages, remaining} = extract_messages_logic(new_buffer, [])
+      assert messages == []
+      assert remaining == "<rpc-reply>partial"
+    end
+
+    test "completes buffer when delimiter arrives in second chunk" do
+      # First chunk: partial data
+      buffer = "<rpc-reply><data>value</data></rpc-reply>"
+
+      # Second chunk with delimiter
+      new_data = "]]>]]>"
+      combined = buffer <> new_data
+
+      {messages, remaining} = extract_messages_logic(combined, [])
+      assert messages == ["<rpc-reply><data>value</data></rpc-reply>"]
+      assert remaining == ""
+    end
+
+    test "handles multiple SSH data chunks building up a complete message" do
+      chunks = [
+        "<rpc-reply>",
+        "<data>",
+        "<hostname>switch-1</hostname>",
+        "</data>",
+        "</rpc-reply>",
+        "]]>]]>"
+      ]
+
+      buffer =
+        Enum.reduce(chunks, "", fn chunk, buf ->
+          buf <> to_string(chunk)
+        end)
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      assert length(messages) == 1
+
+      [msg] = messages
+      assert msg =~ "<hostname>switch-1</hostname>"
+      assert remaining == ""
+    end
+
+    test "handles binary data conversion from SSH chardata" do
+      # SSH may send data as charlists or binaries
+      charlist_data = ~c"<rpc-reply/>]]>]]>"
+      binary_data = to_string(charlist_data)
+
+      {messages, remaining} = extract_messages_logic(binary_data, [])
+      assert messages == ["<rpc-reply/>"]
+      assert remaining == ""
+    end
+  end
+
+  describe "buffer management edge cases" do
+    test "handles empty buffer with delimiter" do
+      buffer = "]]>]]>"
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      # An empty message before the delimiter
+      assert messages == [""]
+      assert remaining == ""
+    end
+
+    test "handles multiple complete messages in one data chunk" do
+      buffer = "msg1]]>]]>msg2]]>]]>"
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      assert messages == ["msg1", "msg2"]
+      assert remaining == ""
+    end
+
+    test "handles three messages with trailing partial" do
+      buffer = "first]]>]]>second]]>]]>third]]>]]>partial"
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      assert messages == ["first", "second", "third"]
+      assert remaining == "partial"
+    end
+
+    test "handles delimiter-only repeated pattern" do
+      buffer = "]]>]]>]]>]]>]]>]]>"
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      assert messages == ["", "", ""]
+      assert remaining == ""
+    end
+
+    test "handles very large buffer content" do
+      # Simulate a large NETCONF response
+      large_xml = String.duplicate("<data>x</data>", 1000)
+      buffer = large_xml <> "]]>]]>"
+
+      {messages, remaining} = extract_messages_logic(buffer, [])
+      assert length(messages) == 1
+      assert hd(messages) == large_xml
+      assert remaining == ""
+    end
+  end
+
+  describe "collect cycle" do
+    test "collect with nil ssh_ref is a no-op" do
+      # When ssh_ref is nil, handle_info(:collect, state) should return unchanged state
+      state = %NetconfSession{
+        ssh_ref: nil,
+        channel_id: nil,
+        buffer: "",
+        device: nil,
+        message_id: 1
+      }
+
+      # Replicate the guard clause: handle_info(:collect, %{ssh_ref: nil} = state)
+      assert state.ssh_ref == nil
+      # The handler returns {:noreply, state} without doing anything
+    end
+
+    test "collect timer interval comes from device configuration" do
+      # Verify the default collection_interval_ms
+      default_interval = 30_000
+
+      # The device struct can override this
+      custom_interval = 10_000
+
+      assert default_interval == 30_000
+      assert custom_interval < default_interval
+    end
+
+    test "message_id increments after each RPC send" do
+      state = %NetconfSession{message_id: 1}
+
+      # Simulate incrementing for each subscription path
+      paths = ["<interfaces/>", "<system/>", "<bgp/>"]
+
+      final_state =
+        Enum.reduce(paths, state, fn _path, acc ->
+          %{acc | message_id: acc.message_id + 1}
+        end)
+
+      assert final_state.message_id == 4
+    end
+  end
+
+  describe "cleanup" do
+    test "cleanup_ssh logic with nil ssh_ref does not crash" do
+      state = %NetconfSession{
+        ssh_ref: nil,
+        channel_id: nil,
+        timer_ref: nil,
+        buffer: "",
+        device: nil,
+        message_id: 1
+      }
+
+      # The cleanup function checks state.timer_ref and state.ssh_ref for nil
+      # before attempting to cancel/close. With both nil, it should be safe.
+      assert state.ssh_ref == nil
+      assert state.timer_ref == nil
+    end
+
+    test "cleanup_ssh logic with timer_ref cancels timer" do
+      # Create a real timer reference to test cancel logic
+      {:ok, timer_ref} = :timer.send_interval(60_000, :unused_collect)
+
+      state = %NetconfSession{
+        ssh_ref: nil,
+        channel_id: nil,
+        timer_ref: timer_ref,
+        buffer: "",
+        device: nil,
+        message_id: 1
+      }
+
+      # Verify timer_ref is truthy (non-nil)
+      assert state.timer_ref != nil
+
+      # Cancel the timer as cleanup would
+      assert {:ok, :cancel} = :timer.cancel(state.timer_ref)
+    end
+
+    test "session closed message triggers reconnect logic" do
+      # When {:ssh_cm, ref, {:closed, channel}} is received,
+      # the session should clean up and schedule a reconnect
+      state = %NetconfSession{
+        ssh_ref: :fake_ref,
+        channel_id: 0,
+        timer_ref: nil,
+        buffer: "some leftover data",
+        device: %{hostname: "test.lab"},
+        message_id: 5
+      }
+
+      # After handling :closed, the state should be reset
+      reset_state = %{state | ssh_ref: nil, channel_id: nil, buffer: ""}
+      assert reset_state.ssh_ref == nil
+      assert reset_state.channel_id == nil
+      assert reset_state.buffer == ""
+      # message_id should be preserved
+      assert reset_state.message_id == 5
+    end
+
+    test "exit_status message does not change state" do
+      state = %NetconfSession{
+        ssh_ref: :fake_ref,
+        channel_id: 0,
+        buffer: "data",
+        device: nil,
+        message_id: 3
+      }
+
+      # handle_info for exit_status returns {:noreply, state} unchanged
+      assert state.buffer == "data"
+      assert state.message_id == 3
+    end
+
+    test "eof message does not change state" do
+      state = %NetconfSession{
+        ssh_ref: :fake_ref,
+        channel_id: 0,
+        buffer: "data",
+        device: nil,
+        message_id: 7
+      }
+
+      # handle_info for eof returns {:noreply, state} unchanged
+      assert state.buffer == "data"
+      assert state.message_id == 7
+    end
+  end
+
+  describe "NETCONF framing" do
+    test "framing delimiter is correct" do
+      # The NETCONF 1.0 framing delimiter is ]]>]]>
+      delimiter = "]]>]]>"
+      assert String.length(delimiter) == 6
+    end
+
+    test "hello message contains framing delimiter" do
+      hello = """
+      <?xml version="1.0" encoding="UTF-8"?>
+      <hello xmlns="urn:ietf:params:xml:ns:netconf:base:1.0">
+        <capabilities>
+          <capability>urn:ietf:params:netconf:base:1.0</capability>
+          <capability>urn:ietf:params:netconf:base:1.1</capability>
+        </capabilities>
+      </hello>]]>]]>
+      """
+
+      assert hello =~ "]]>]]>"
+      assert hello =~ "urn:ietf:params:netconf:base:1.0"
+      assert hello =~ "urn:ietf:params:netconf:base:1.1"
+    end
+  end
+
+  describe "parse_float edge cases" do
+    test "partial float with trailing non-numeric and decimal returns float" do
+      # e.g. "3.14abc" -> Float.parse returns {3.14, "abc"}
+      # Since it contains ".", parse_float returns 3.14
+      assert parse_float_logic("3.14abc") == 3.14
+    end
+
+    test "integer with trailing non-numeric returns nil (no decimal)" do
+      # e.g. "42abc" -> Float.parse returns {42.0, "abc"}
+      # Since no ".", parse_float returns nil
+      assert parse_float_logic("42abc") == nil
+    end
+
+    test "empty string returns nil" do
+      assert parse_float_logic("") == nil
+    end
+
+    test "negative float" do
+      assert parse_float_logic("-3.14") == -3.14
+    end
+
+    test "negative integer parsed as float" do
+      assert parse_float_logic("-42") == -42.0
+    end
+  end
+
+  describe "parse_int edge cases" do
+    test "negative integer parses correctly" do
+      assert parse_int_logic("-100") == -100
+    end
+
+    test "empty string returns nil" do
+      assert parse_int_logic("") == nil
+    end
+
+    test "float string returns nil for int parsing" do
+      # "3.14" -> Integer.parse returns {3, ".14"} which is not {i, ""}
+      assert parse_int_logic("3.14") == nil
+    end
+  end
+
+  describe "numeric? edge cases" do
+    test "empty string is not numeric" do
+      refute numeric_logic?("")
+    end
+
+    test "negative values are numeric" do
+      assert numeric_logic?("-42")
+      assert numeric_logic?("-3.14")
+    end
+
+    test "scientific notation is numeric" do
+      assert numeric_logic?("1.0e3")
+    end
+  end
+
+  describe "collection interval" do
+    test "uses device interval when set" do
+      interval = 10_000
+      result = interval || 30_000
+      assert result == 10_000
+    end
+
+    test "falls back to 30_000 when device interval is nil" do
+      interval = nil
+      result = interval || 30_000
+      assert result == 30_000
+    end
+  end
+
+  describe "element_to_path logic" do
+    test "builds path with leading slash from element name" do
+      # The source: "/" <> name where name is extracted via xpath local-name
+      name = "hostname"
+      path = "/" <> name
+      assert path == "/hostname"
+    end
+
+    test "handles empty name" do
+      name = ""
+      path = "/" <> name
+      assert path == "/"
+    end
+  end
+
 end

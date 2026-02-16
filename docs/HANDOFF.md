@@ -3,7 +3,7 @@
 ## Project Status
 
 **Location**: `/home/dude/switch-telemetry/`
-**State**: Phases 1-9 complete. 527 tests passing, zero warnings, CI green.
+**State**: Phases 1-10 complete. 847 tests, 25 properties passing, zero warnings, CI green.
 **Ready for**: Next feature development.
 
 ## Documentation Index
@@ -24,6 +24,10 @@
 | `docs/decisions/ADR-002-node-separation.md` | Collector vs Web node types |
 | `docs/decisions/ADR-003-charting-library.md` | VegaLite/Tucan vs Plox vs Contex |
 | `docs/decisions/ADR-004-protocol-clients.md` | Custom gNMI/NETCONF clients |
+| `docs/decisions/ADR-006-behaviour-testability.md` | Behaviour Abstractions for Testability |
+| `docs/decisions/ADR-007-auth-system.md` | Authentication System |
+| `docs/architecture/08_ALERTING_SYSTEM.md` | Alerting System |
+| `docs/architecture/09_AUTH_SECURITY.md` | Authentication & Security |
 | `docs/guardrails/NEVER_DO.md` | 10 critical prohibitions with code examples |
 | `docs/guardrails/ALWAYS_DO.md` | 20 mandatory practices |
 | `docs/guardrails/CODE_REVIEW_CHECKLIST.md` | Review checklist for PRs |
@@ -94,6 +98,16 @@
 - Removed TimescaleDB extension dependency
 - PostgreSQL retained for all relational data
 
+### Phase 10: Test Coverage Gaps -- COMPLETE
+- Introduced GrpcClient and SshClient behaviours to wrap gRPC and SSH operations, enabling Mox-based unit testing of GnmiSession and NetconfSession without real network connections
+- Added DefaultGrpcClient and DefaultSshClient production implementations; MockGrpcClient and MockSshClient Mox mocks in test support
+- ~140 new tests added across multiple areas:
+  - **Components**: navigation_test (Sidebar, TopBar, MobileNav rendering), telemetry_chart_test (LiveComponent chart specs), time_range_picker_test (range selection), widget_editor_test (add/edit widgets)
+  - **Controllers**: page_controller_test (root redirect logic)
+  - **Infrastructure**: application_test (supervision tree children by node role)
+  - **Collector lifecycle**: gnmi_session_lifecycle_test (handle_info, terminate with Mox gRPC mocks), netconf_session_lifecycle_test (handle_info, terminate with Mox SSH mocks), node_monitor_lifecycle_test (nodeup/nodedown handling, telemetry events)
+  - **Collector GenServer callbacks**: expanded device_assignment_test and device_manager_test with handle_call, handle_cast, handle_info callback tests
+
 ## Key Hex Dependencies
 
 ```elixir
@@ -134,7 +148,7 @@ end
 
 ## Next Steps
 
-All core phases (1-9) are complete. 527 tests passing, zero warnings, CI green.
+All core phases (1-10) are complete. 847 tests, 25 properties passing, zero warnings, CI green.
 
 Potential next areas:
 1. SNMP collector support

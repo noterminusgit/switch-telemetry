@@ -4,25 +4,30 @@
 
 ```
 SwitchTelemetry.Supervisor (one_for_one)
-├── SwitchTelemetry.Repo (Ecto)
+├── SwitchTelemetry.Repo (Ecto)                          ← PostgreSQL connection pool
+├── SwitchTelemetry.InfluxDB (Instream)                  ← InfluxDB v2 connection
+├── SwitchTelemetry.Vault (Cloak)                        ← AES-256-GCM encryption at rest
 ├── {Phoenix.PubSub, name: SwitchTelemetry.PubSub}
-├── {Cluster.Supervisor, topologies}                    ← libcluster
-├── {Horde.Registry, name: DistributedRegistry}         ← cluster-wide process names
+├── {Horde.Registry, name: DistributedRegistry}          ← cluster-wide process names
 ├── {Horde.DynamicSupervisor, name: DistributedSupervisor} ← cluster-wide process supervisor
+├── {Finch, name: SwitchTelemetry.Finch}                 ← HTTP client for webhooks/notifications
 │
 ├── [COLLECTOR ONLY]
-│   ├── SwitchTelemetry.Collector.DeviceManager         ← orchestrates device sessions
+│   ├── SwitchTelemetry.Collector.DeviceAssignment       ← consistent hash ring for device ownership
+│   ├── SwitchTelemetry.Collector.NodeMonitor             ← watches cluster membership
+│   ├── SwitchTelemetry.Collector.DeviceManager           ← orchestrates device sessions
 │   │   └── (dynamically starts GnmiSession / NetconfSession via Horde)
-│   ├── SwitchTelemetry.Collector.NodeMonitor            ← watches cluster membership
-│   └── {Oban, queues: [...]}                            ← background jobs
-│       ├── SwitchTelemetry.Workers.DeviceDiscovery
-│       ├── SwitchTelemetry.Workers.StaleSessionCleanup
-│       └── SwitchTelemetry.Workers.ConfigBackup
+│   ├── SwitchTelemetry.Collector.StreamMonitor           ← tracks stream health and message rates
+│   └── {Oban, queues: [...]}                             ← background jobs
+│       ├── SwitchTelemetry.Workers.DeviceDiscovery       (queue: discovery)
+│       ├── SwitchTelemetry.Workers.StaleSessionCleanup   (queue: maintenance)
+│       ├── SwitchTelemetry.Workers.AlertEvaluator        (queue: alerts, cron: every minute)
+│       ├── SwitchTelemetry.Workers.AlertNotifier          (queue: notifications)
+│       └── SwitchTelemetry.Workers.AlertEventPruner       (queue: maintenance, cron: daily 3am)
 │
 └── [WEB ONLY]
-    ├── SwitchTelemetryWeb.Telemetry                     ← :telemetry metrics
-    ├── SwitchTelemetryWeb.Endpoint                      ← Phoenix HTTP/WebSocket
-    └── SwitchTelemetryWeb.Presence                      ← user presence tracking
+    ├── SwitchTelemetryWeb.Telemetry                      ← :telemetry metrics
+    └── SwitchTelemetryWeb.Endpoint                       ← Phoenix HTTP/WebSocket
 ```
 
 ## GenServer Usage Rules
@@ -36,8 +41,9 @@ GenServers are used for **infrastructure** processes, NOT for domain entities.
 | `GnmiSession` | Manages gRPC connection to a device | Reconnects automatically; no data lost (metrics already in DB) |
 | `NetconfSession` | Manages SSH/NETCONF connection | Reconnects automatically |
 | `DeviceManager` | Tracks which devices this node owns | Rebuilt from DB on restart |
-| `DeviceAssignment` | Consistent hash ring | Rebuilt from node list on restart |
+| `DeviceAssignment` | Consistent hash ring for device ownership | Rebuilt from node list on restart |
 | `NodeMonitor` | Watches cluster membership changes | Stateless (reacts to events) |
+| `StreamMonitor` | Tracks stream health, message rates, errors | Rebuilt from live session reports; no persistent state |
 
 ### Prohibited GenServer Uses
 
@@ -111,6 +117,43 @@ When a collector node crashes:
 7. PubSub subscriptions on web nodes continue working (they don't care which collector sends the broadcast)
 
 **Typical failover time**: 5-15 seconds (Horde redistribution + gRPC/SSH reconnection)
+
+## Oban Workers
+
+Oban runs only on collector nodes (or `NODE_ROLE=both`). Web-only nodes set `queues: false`.
+
+### Queues
+
+| Queue | Concurrency | Purpose |
+|---|---|---|
+| `discovery` | 2 | Device discovery and assignment |
+| `maintenance` | 1 | Session cleanup, alert event pruning |
+| `alerts` | 1 | Alert rule evaluation |
+| `notifications` | 5 | Alert notification delivery (webhook, Slack, email) |
+
+### Workers
+
+| Worker | Queue | Schedule | Description |
+|---|---|---|---|
+| `DeviceDiscovery` | `discovery` | On-demand | Finds unassigned devices, assigns them to collectors via hash ring, detects stale heartbeats |
+| `StaleSessionCleanup` | `maintenance` | On-demand | Detects Horde-registered sessions on dead nodes, cleans up and triggers rebalance |
+| `AlertEvaluator` | `alerts` | `* * * * *` (every minute) | Evaluates all enabled alert rules against recent metrics, creates alert events, enqueues notifications |
+| `AlertNotifier` | `notifications` | On-demand (enqueued by AlertEvaluator) | Delivers notifications via Finch (webhook/Slack) or Swoosh (email); max 5 attempts |
+| `AlertEventPruner` | `maintenance` | `0 3 * * *` (daily at 3:00 AM UTC) | Deletes alert events older than 30 days, keeping at least 100 per rule |
+
+### Cron Plugin
+
+Configured in `config/config.exs`:
+
+```elixir
+plugins: [
+  {Oban.Plugins.Cron,
+   crontab: [
+     {"* * * * *", SwitchTelemetry.Workers.AlertEvaluator},
+     {"0 3 * * *", SwitchTelemetry.Workers.AlertEventPruner}
+   ]}
+]
+```
 
 ## Telemetry & Health Checks
 

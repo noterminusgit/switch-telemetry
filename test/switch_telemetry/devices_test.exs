@@ -334,4 +334,146 @@ defmodule SwitchTelemetry.DevicesTest do
       assert device.credential_id == cred.id
     end
   end
+
+  # --- Additional coverage tests ---
+
+  describe "change_device/1" do
+    test "returns a changeset for an existing device" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      changeset = Devices.change_device(device)
+      assert %Ecto.Changeset{} = changeset
+    end
+  end
+
+  describe "change_device/2" do
+    test "returns a changeset with new attributes" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      changeset = Devices.change_device(device, %{hostname: "updated.lab"})
+      assert %Ecto.Changeset{} = changeset
+      assert Ecto.Changeset.get_change(changeset, :hostname) == "updated.lab"
+    end
+
+    test "returns a changeset that tracks status change" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      changeset = Devices.change_device(device, %{status: :maintenance})
+      assert Ecto.Changeset.get_change(changeset, :status) == :maintenance
+    end
+
+    test "returns an invalid changeset for bad ip_address" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      changeset = Devices.change_device(device, %{ip_address: "not-valid"})
+      refute changeset.valid?
+    end
+  end
+
+  describe "get_device_with_credential!/1" do
+    test "returns device with preloaded credential (nil)" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      result = Devices.get_device_with_credential!(device.id)
+      assert result.id == device.id
+      # credential is preloaded as nil when not set
+      assert is_nil(result.credential)
+    end
+
+    test "returns device with preloaded credential association" do
+      {:ok, cred} = Devices.create_credential(valid_credential_attrs())
+      {:ok, device} = Devices.create_device(valid_device_attrs(%{credential_id: cred.id}))
+      result = Devices.get_device_with_credential!(device.id)
+      assert result.id == device.id
+      assert result.credential.id == cred.id
+      assert result.credential.name == cred.name
+    end
+
+    test "raises for missing device" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Devices.get_device_with_credential!("nonexistent")
+      end
+    end
+  end
+
+  describe "get_device_with_subscriptions!/1" do
+    test "returns device with preloaded subscriptions (empty)" do
+      {:ok, device} = Devices.create_device(valid_device_attrs())
+      result = Devices.get_device_with_subscriptions!(device.id)
+      assert result.id == device.id
+      assert is_list(result.subscriptions)
+      assert result.subscriptions == []
+    end
+
+    test "raises for missing device" do
+      assert_raise Ecto.NoResultsError, fn ->
+        Devices.get_device_with_subscriptions!("nonexistent")
+      end
+    end
+  end
+
+  describe "list_credentials_for_select/0" do
+    test "returns empty list when no credentials" do
+      assert Devices.list_credentials_for_select() == []
+    end
+
+    test "returns {name, id} tuples" do
+      {:ok, cred} =
+        Devices.create_credential(valid_credential_attrs(%{name: "Select Test Cred"}))
+
+      result = Devices.list_credentials_for_select()
+      assert {"Select Test Cred", cred.id} in result
+    end
+
+    test "returns credentials sorted by name" do
+      {:ok, _} =
+        Devices.create_credential(valid_credential_attrs(%{name: "Bravo Cred"}))
+
+      {:ok, _} =
+        Devices.create_credential(valid_credential_attrs(%{name: "Alpha Cred"}))
+
+      result = Devices.list_credentials_for_select()
+      names = Enum.map(result, fn {name, _id} -> name end)
+      assert names == ["Alpha Cred", "Bravo Cred"]
+    end
+
+    test "returns all credentials" do
+      {:ok, _} = Devices.create_credential(valid_credential_attrs(%{name: "One"}))
+      {:ok, _} = Devices.create_credential(valid_credential_attrs(%{name: "Two"}))
+      {:ok, _} = Devices.create_credential(valid_credential_attrs(%{name: "Three"}))
+
+      result = Devices.list_credentials_for_select()
+      assert length(result) == 3
+    end
+  end
+
+  describe "change_credential/1" do
+    test "returns a changeset" do
+      {:ok, cred} = Devices.create_credential(valid_credential_attrs())
+      changeset = Devices.change_credential(cred)
+      assert %Ecto.Changeset{} = changeset
+    end
+  end
+
+  describe "change_credential/2" do
+    test "returns a changeset with changes" do
+      {:ok, cred} = Devices.create_credential(valid_credential_attrs())
+      changeset = Devices.change_credential(cred, %{username: "operator"})
+      assert %Ecto.Changeset{} = changeset
+      assert Ecto.Changeset.get_change(changeset, :username) == "operator"
+    end
+
+    test "returns a changeset with name change" do
+      {:ok, cred} = Devices.create_credential(valid_credential_attrs())
+      changeset = Devices.change_credential(cred, %{name: "New Name"})
+      assert Ecto.Changeset.get_change(changeset, :name) == "New Name"
+    end
+  end
+
+  describe "list_credentials/0" do
+    test "returns empty list when no credentials exist" do
+      assert Devices.list_credentials() == []
+    end
+
+    test "returns all credentials" do
+      {:ok, _} = Devices.create_credential(valid_credential_attrs())
+      {:ok, _} = Devices.create_credential(valid_credential_attrs())
+      assert length(Devices.list_credentials()) == 2
+    end
+  end
 end

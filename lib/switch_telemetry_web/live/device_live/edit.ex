@@ -13,7 +13,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
     {:ok,
      assign(socket,
        device: device,
-       changeset: changeset,
+       form: to_form(changeset),
        credentials: credentials,
        page_title: "Edit #{device.hostname}"
      )}
@@ -28,7 +28,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
       |> Devices.change_device(device_params)
       |> Map.put(:action, :validate)
 
-    {:noreply, assign(socket, changeset: changeset)}
+    {:noreply, assign(socket, form: to_form(changeset))}
   end
 
   def handle_event("save", %{"device" => device_params}, socket) do
@@ -40,7 +40,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
          |> push_navigate(to: ~p"/devices/#{device.id}")}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, changeset: changeset)}
+        {:noreply, assign(socket, form: to_form(changeset))}
     end
   end
 
@@ -59,17 +59,17 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
       </header>
 
       <div class="bg-white rounded-lg shadow p-6">
-        <.simple_form for={@changeset} phx-change="validate" phx-submit="save">
+        <.simple_form for={@form} phx-change="validate" phx-submit="save">
           <div class="space-y-6">
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <.input
-                field={@changeset[:hostname]}
+                field={@form[:hostname]}
                 type="text"
                 label="Hostname"
                 required
               />
               <.input
-                field={@changeset[:ip_address]}
+                field={@form[:ip_address]}
                 type="text"
                 label="IP Address"
                 required
@@ -78,7 +78,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
 
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <.input
-                field={@changeset[:platform]}
+                field={@form[:platform]}
                 type="select"
                 label="Platform"
                 options={[
@@ -91,7 +91,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
                 required
               />
               <.input
-                field={@changeset[:transport]}
+                field={@form[:transport]}
                 type="select"
                 label="Transport"
                 options={[{"gNMI", "gnmi"}, {"NETCONF", "netconf"}, {"Both", "both"}]}
@@ -101,14 +101,14 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
 
             <div class="grid grid-cols-1 gap-6 sm:grid-cols-2">
               <.input
-                field={@changeset[:gnmi_port]}
+                field={@form[:gnmi_port]}
                 type="number"
                 label="gNMI Port"
                 min="1"
                 max="65535"
               />
               <.input
-                field={@changeset[:netconf_port]}
+                field={@form[:netconf_port]}
                 type="number"
                 label="NETCONF Port"
                 min="1"
@@ -117,7 +117,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
             </div>
 
             <.input
-              field={@changeset[:credential_id]}
+              field={@form[:credential_id]}
               type="select"
               label="Credential"
               options={[{"None", ""} | @credentials]}
@@ -125,7 +125,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
             />
 
             <.input
-              field={@changeset[:collection_interval_ms]}
+              field={@form[:collection_interval_ms]}
               type="number"
               label="Collection Interval (ms)"
               min="1000"
@@ -133,7 +133,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
             />
 
             <.input
-              field={@changeset[:status]}
+              field={@form[:status]}
               type="select"
               label="Status"
               options={[

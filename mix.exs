@@ -12,6 +12,60 @@ defmodule SwitchTelemetry.MixProject do
       deps: deps(),
       releases: releases(),
       listeners: [Phoenix.CodeReloader],
+      test_coverage: [
+        ignore_modules: [
+          # Protobuf-generated modules (gnmi.pb.ex / gnmi.service.ex)
+          Gnmi.CapabilityRequest,
+          Gnmi.CapabilityResponse,
+          Gnmi.Encoding,
+          Gnmi.GetRequest,
+          Gnmi.GetRequest.DataType,
+          Gnmi.GetResponse,
+          Gnmi.GNMI.Service,
+          Gnmi.GNMI.Stub,
+          Gnmi.Notification,
+          Gnmi.Path,
+          Gnmi.PathElem,
+          Gnmi.SetRequest,
+          Gnmi.SetResponse,
+          Gnmi.SubscribeRequest,
+          Gnmi.SubscribeResponse,
+          Gnmi.Subscription,
+          Gnmi.SubscriptionList,
+          Gnmi.SubscriptionList.Mode,
+          Gnmi.SubscriptionMode,
+          Gnmi.TypedValue,
+          Gnmi.Update,
+          Gnmi.UpdateResult,
+          Gnmi.PathElem.KeyEntry,
+          Gnmi.Poll,
+          Gnmi.QOS,
+          Gnmi.SubscriptionListMode,
+          # Inspect protocol derivations (auto-generated)
+          Inspect.SwitchTelemetry.Accounts.User,
+          Inspect.SwitchTelemetry.Accounts.UserToken,
+          Inspect.SwitchTelemetry.Collector.StreamMonitor.StreamStatus,
+          Inspect.SwitchTelemetry.Devices.Credential,
+          # Test mock module
+          SwitchTelemetry.Metrics.MockBackend,
+          # Test support modules
+          SwitchTelemetry.InfluxCase,
+          # Pure struct with no functions
+          SwitchTelemetry.Collector.StreamMonitor.StreamStatus,
+          # Thin delegation to external libraries (GRPC.Stub, :ssh)
+          SwitchTelemetry.Collector.DefaultGrpcClient,
+          SwitchTelemetry.Collector.DefaultSshClient,
+          # InfluxDB modules (require running InfluxDB instance)
+          SwitchTelemetry.Metrics.InfluxBackend,
+          SwitchTelemetry.Metrics.QueryRouter,
+          SwitchTelemetry.Metrics,
+          # Telemetry metrics/poller configuration (infrastructure)
+          SwitchTelemetryWeb.Telemetry,
+          # Template-only modules (embed_templates, no logic)
+          SwitchTelemetryWeb.Layouts,
+          SwitchTelemetryWeb.UserSessionHTML
+        ]
+      ],
       dialyzer: [
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"},
         plt_add_apps: [:mix, :ex_unit],

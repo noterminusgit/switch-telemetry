@@ -65,11 +65,16 @@ Module-to-test-file mapping for Switch Telemetry. Updated 2026-02-15.
 | Module | Test File | Type | Status |
 |--------|-----------|------|--------|
 | `SwitchTelemetry.Collector` | `test/switch_telemetry/collector_test.exs` | context | covered |
+| `SwitchTelemetry.Collector.GrpcClient` | behaviour for gRPC ops; Mox mock in `test/support/mocks.ex` | behaviour | covered |
+| `SwitchTelemetry.Collector.SshClient` | behaviour for SSH ops; Mox mock in `test/support/mocks.ex` | behaviour | covered |
 | `SwitchTelemetry.Collector.GnmiSession` | `test/switch_telemetry/collector/gnmi_session_test.exs` | genserver | covered |
+| `SwitchTelemetry.Collector.GnmiSession` (lifecycle) | `test/switch_telemetry/collector/gnmi_session_lifecycle_test.exs` | genserver | covered |
 | `SwitchTelemetry.Collector.NetconfSession` | `test/switch_telemetry/collector/netconf_session_test.exs` | genserver | covered |
-| `SwitchTelemetry.Collector.DeviceManager` | `test/switch_telemetry/collector/device_manager_test.exs` | genserver | covered |
-| `SwitchTelemetry.Collector.DeviceAssignment` | `test/switch_telemetry/collector/device_assignment_test.exs` | utility | covered |
+| `SwitchTelemetry.Collector.NetconfSession` (lifecycle) | `test/switch_telemetry/collector/netconf_session_lifecycle_test.exs` | genserver | covered |
+| `SwitchTelemetry.Collector.DeviceManager` | `test/switch_telemetry/collector/device_manager_test.exs` (includes GenServer callback tests) | genserver | covered |
+| `SwitchTelemetry.Collector.DeviceAssignment` | `test/switch_telemetry/collector/device_assignment_test.exs` (includes lifecycle callback tests) | utility | covered |
 | `SwitchTelemetry.Collector.NodeMonitor` | `test/switch_telemetry/collector/node_monitor_test.exs` | genserver | covered |
+| `SwitchTelemetry.Collector.NodeMonitor` (lifecycle) | `test/switch_telemetry/collector/node_monitor_lifecycle_test.exs` | genserver | covered |
 | `SwitchTelemetry.Collector.StreamMonitor` | `test/switch_telemetry/collector/stream_monitor_test.exs` | genserver | covered |
 | `SwitchTelemetry.Collector.Subscription` | `test/switch_telemetry/collector/subscription_test.exs` | schema | covered |
 | `SwitchTelemetry.Collector.Subscription` (property) | `test/switch_telemetry/collector/subscription_property_test.exs` | schema | covered |
@@ -111,7 +116,7 @@ Module-to-test-file mapping for Switch Telemetry. Updated 2026-02-15.
 | Module | Test File | Type | Status |
 |--------|-----------|------|--------|
 | `SwitchTelemetryWeb.UserSessionController` | `test/switch_telemetry_web/controllers/user_session_controller_test.exs` | controller | covered |
-| `SwitchTelemetryWeb.PageController` | -- | controller | untested |
+| `SwitchTelemetryWeb.PageController` | `test/switch_telemetry_web/controllers/page_controller_test.exs` | controller | covered |
 | `SwitchTelemetryWeb.ErrorHTML` | `test/switch_telemetry_web/controllers/error_html_test.exs` | controller | covered |
 | `SwitchTelemetryWeb.ErrorJSON` | `test/switch_telemetry_web/controllers/error_json_test.exs` | controller | covered |
 | `SwitchTelemetryWeb.UserAuth` | `test/switch_telemetry_web/user_auth_test.exs` | plug | covered |
@@ -121,12 +126,12 @@ Module-to-test-file mapping for Switch Telemetry. Updated 2026-02-15.
 | Module | Test File | Type | Status |
 |--------|-----------|------|--------|
 | `SwitchTelemetryWeb.CoreComponents` | via LiveView tests | component | partial |
-| `SwitchTelemetryWeb.TelemetryChart` | via dashboard_live_test | component | partial |
-| `SwitchTelemetryWeb.TopBar` | via LiveView tests | component | partial |
-| `SwitchTelemetryWeb.Sidebar` | via LiveView tests | component | partial |
-| `SwitchTelemetryWeb.MobileNav` | via LiveView tests | component | partial |
-| `SwitchTelemetryWeb.TimeRangePicker` | via LiveView tests | component | partial |
-| `SwitchTelemetryWeb.WidgetEditor` | via LiveView tests | component | partial |
+| `SwitchTelemetryWeb.TelemetryChart` | `test/switch_telemetry_web/components/telemetry_chart_test.exs` | component | covered |
+| `SwitchTelemetryWeb.TopBar` | `test/switch_telemetry_web/components/navigation_test.exs` | component | covered |
+| `SwitchTelemetryWeb.Sidebar` | `test/switch_telemetry_web/components/navigation_test.exs` | component | covered |
+| `SwitchTelemetryWeb.MobileNav` | `test/switch_telemetry_web/components/navigation_test.exs` | component | covered |
+| `SwitchTelemetryWeb.TimeRangePicker` | `test/switch_telemetry_web/components/time_range_picker_test.exs` | component | covered |
+| `SwitchTelemetryWeb.WidgetEditor` | `test/switch_telemetry_web/components/widget_editor_test.exs` | component | covered |
 | `SwitchTelemetryWeb.Layouts` | via LiveView tests | component | partial |
 
 ## Security
@@ -138,11 +143,11 @@ Module-to-test-file mapping for Switch Telemetry. Updated 2026-02-15.
 | Security: Input Validation | `test/switch_telemetry/security/input_validation_test.exs` | utility | covered |
 | Security: HTTP Headers | `test/switch_telemetry_web/security/headers_test.exs` | utility | covered |
 
-## Infrastructure (no dedicated tests)
+## Infrastructure
 
 | Module | Test File | Type | Status |
 |--------|-----------|------|--------|
-| `SwitchTelemetry.Application` | -- | utility | untested |
+| `SwitchTelemetry.Application` | `test/switch_telemetry/application_test.exs` | utility | covered |
 | `SwitchTelemetry.Repo` | -- | utility | untested |
 | `SwitchTelemetry.Mailer` | -- | utility | untested |
 | `SwitchTelemetryWeb` | -- | utility | untested |
@@ -157,6 +162,6 @@ Module-to-test-file mapping for Switch Telemetry. Updated 2026-02-15.
 
 | Status | Count |
 |--------|-------|
-| covered | 42 |
-| partial | 24 |
+| covered | 64 |
+| partial | 20 |
 | untested | 7 |

@@ -231,6 +231,88 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
     end
   end
 
+  describe "update_query event" do
+    test "update_query updates a query field at given index", %{conn: conn, dashboard: dashboard} do
+      {view, _html} = render_editor(conn, dashboard)
+
+      # Update the device_id of the first query
+      view
+      |> element("input[phx-value-field=device_id]")
+      |> render_blur(%{"index" => "0", "field" => "device_id", "value" => "dev-123"})
+
+      html = render(view)
+      assert html =~ "dev-123"
+    end
+
+    test "update_query updates the path field", %{conn: conn, dashboard: dashboard} do
+      {view, _html} = render_editor(conn, dashboard)
+
+      view
+      |> element("input[phx-value-field=path]")
+      |> render_blur(%{"index" => "0", "field" => "path", "value" => "/interfaces/counters"})
+
+      html = render(view)
+      assert html =~ "/interfaces/counters"
+    end
+
+    test "update_query updates the label field", %{conn: conn, dashboard: dashboard} do
+      {view, _html} = render_editor(conn, dashboard)
+
+      view
+      |> element("input[phx-value-field=label]")
+      |> render_blur(%{"index" => "0", "field" => "label", "value" => "CPU Usage"})
+
+      html = render(view)
+      assert html =~ "CPU Usage"
+    end
+  end
+
+  describe "update_time_range event" do
+    test "update_time_range changes the selected time range", %{conn: conn, dashboard: dashboard} do
+      {view, _html} = render_editor(conn, dashboard)
+
+      view
+      |> element("select[name=\"widget[time_range]\"]")
+      |> render_click(%{"value" => "24h"})
+
+      html = render(view)
+      # The time_range_value should now be "24h"
+      assert html =~ "selected" or html =~ "24h"
+    end
+  end
+
+  describe "time_range_value from existing widget" do
+    test "reads duration from widget with string key map", %{conn: conn, dashboard: dashboard} do
+      {:ok, widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_tr_str_#{System.unique_integer([:positive])}",
+          title: "Time Range String",
+          chart_type: :line,
+          time_range: %{"type" => "relative", "duration" => "6h"}
+        })
+
+      {_view, html} =
+        render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
+
+      assert html =~ "widget-form"
+    end
+
+    test "reads duration from widget with atom key map", %{conn: conn, dashboard: dashboard} do
+      {:ok, widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_tr_atom_#{System.unique_integer([:positive])}",
+          title: "Time Range Atom",
+          chart_type: :bar,
+          time_range: %{type: "relative", duration: "15m"}
+        })
+
+      {_view, html} =
+        render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
+
+      assert html =~ "widget-form"
+    end
+  end
+
   describe "save" do
     test "save creates widget for add_widget action", %{conn: conn, dashboard: dashboard} do
       {view, _html} = render_editor(conn, dashboard, action: :add_widget)

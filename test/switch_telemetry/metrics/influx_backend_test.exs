@@ -371,4 +371,202 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       end
     end
   end
+
+  # ── insert_batch with integer values ───────────────────────────────
+
+  describe "insert_batch with integer values" do
+    test "stores value_int field and retrieves it" do
+      metrics = [
+        %{
+          device_id: "dev-int-test",
+          path: "/interfaces/interface/state/ifindex",
+          source: "gnmi",
+          value_float: nil,
+          value_int: 42,
+          value_str: nil,
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-int-test", limit: 10, minutes: 5)
+      assert length(results) > 0
+      metric = hd(results)
+      assert metric.value_int == 42
+    end
+
+    test "stores large integer values" do
+      metrics = [
+        %{
+          device_id: "dev-int-large",
+          path: "/interfaces/interface/state/counters/in-octets",
+          source: "gnmi",
+          value_float: nil,
+          value_int: 9_999_999_999,
+          value_str: nil,
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-int-large", limit: 10, minutes: 5)
+      assert length(results) > 0
+      assert hd(results).value_int == 9_999_999_999
+    end
+
+    test "stores zero integer value" do
+      metrics = [
+        %{
+          device_id: "dev-int-zero",
+          path: "/interfaces/interface/state/counters/errors",
+          source: "gnmi",
+          value_float: nil,
+          value_int: 0,
+          value_str: nil,
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-int-zero", limit: 10, minutes: 5)
+      assert length(results) > 0
+      assert hd(results).value_int == 0
+    end
+  end
+
+  # ── insert_batch with string values ────────────────────────────────
+
+  describe "insert_batch with string values" do
+    test "stores value_str field and retrieves it" do
+      metrics = [
+        %{
+          device_id: "dev-str-test",
+          path: "/interfaces/interface/state/oper-status",
+          source: "gnmi",
+          value_float: nil,
+          value_int: nil,
+          value_str: "UP",
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-str-test", limit: 10, minutes: 5)
+      assert length(results) > 0
+      metric = hd(results)
+      assert metric.value_str == "UP"
+    end
+
+    test "stores longer string values" do
+      metrics = [
+        %{
+          device_id: "dev-str-long",
+          path: "/system/state/hostname",
+          source: "netconf",
+          value_float: nil,
+          value_int: nil,
+          value_str: "my-network-switch-01.example.com",
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-str-long", limit: 10, minutes: 5)
+      assert length(results) > 0
+      assert hd(results).value_str == "my-network-switch-01.example.com"
+    end
+
+    test "stores string value alongside nil float and int" do
+      metrics = [
+        %{
+          device_id: "dev-str-only",
+          path: "/interfaces/interface/state/admin-status",
+          source: "gnmi",
+          value_float: nil,
+          value_int: nil,
+          value_str: "DOWN",
+          time: DateTime.utc_now(),
+          tags: %{}
+        }
+      ]
+
+      assert {1, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-str-only", limit: 10, minutes: 5)
+      assert length(results) > 0
+      metric = hd(results)
+      assert metric.value_str == "DOWN"
+      assert metric.value_float == nil
+      assert metric.value_int == nil
+    end
+  end
+
+  # ── insert_batch with mixed value types ────────────────────────────
+
+  describe "insert_batch with mixed value types in single batch" do
+    test "stores metrics with different value types in one batch" do
+      now = DateTime.utc_now()
+
+      metrics = [
+        %{
+          device_id: "dev-mixed-batch",
+          path: "/interfaces/interface/state/counters/in-octets",
+          source: "gnmi",
+          value_float: nil,
+          value_int: 12345,
+          value_str: nil,
+          time: DateTime.add(now, -2, :second),
+          tags: %{}
+        },
+        %{
+          device_id: "dev-mixed-batch",
+          path: "/interfaces/interface/state/oper-status",
+          source: "gnmi",
+          value_float: nil,
+          value_int: nil,
+          value_str: "UP",
+          time: DateTime.add(now, -1, :second),
+          tags: %{}
+        },
+        %{
+          device_id: "dev-mixed-batch",
+          path: "/interfaces/interface/state/counters/rate",
+          source: "gnmi",
+          value_float: 95.7,
+          value_int: nil,
+          value_str: nil,
+          time: now,
+          tags: %{}
+        }
+      ]
+
+      assert {3, nil} = InfluxBackend.insert_batch(metrics)
+      Process.sleep(500)
+
+      results = InfluxBackend.get_latest("dev-mixed-batch", limit: 10, minutes: 5)
+      assert length(results) == 3
+
+      # Verify each metric type is stored correctly
+      paths = Enum.map(results, & &1.path)
+      assert "/interfaces/interface/state/counters/rate" in paths
+      assert "/interfaces/interface/state/oper-status" in paths
+      assert "/interfaces/interface/state/counters/in-octets" in paths
+    end
+  end
 end

@@ -146,6 +146,44 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "No widgets configured"
     end
+
+    test "shows dashboard description", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{
+          id: "dash_desc_test",
+          name: "Desc Dashboard",
+          description: "A detailed description"
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "A detailed description"
+    end
+
+    test "shows add widget button", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{
+          id: "dash_add_wgt",
+          name: "Add Widget Test"
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "Add Widget"
+    end
+
+    test "displays widget titles in show view", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_wgt_show", name: "Widget Show"})
+
+      {:ok, _} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_show_title",
+          title: "Network Traffic",
+          chart_type: :line
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "Network Traffic"
+    end
   end
 
   describe "time range picker" do
@@ -324,6 +362,226 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "Export"
+    end
+
+    test "clicking export triggers push_event", %{conn: conn} do
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_exp_click", name: "Export Click"})
+
+      {:ok, widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_exp_click",
+          title: "Export Click Chart",
+          chart_type: :line
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      # Click export button should not crash
+      view
+      |> element("button[phx-click=export_widget][phx-value-id=#{widget.id}]")
+      |> render_click()
+
+      # View should still render correctly after export
+      html = render(view)
+      assert html =~ "Export Click Chart"
+    end
+  end
+
+  describe "Show - PubSub and handle_info" do
+    test "receives widget_saved message and updates dashboard", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_ws", name: "Widget Save Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      # Update the dashboard name first
+      {:ok, updated} = Dashboards.update_dashboard(dashboard, %{name: "Updated Name"})
+      updated = Dashboards.get_dashboard!(updated.id)
+
+      # Simulate widget_saved message
+      send(view.pid, {:widget_saved, updated})
+
+      html = render(view)
+      assert html =~ "Updated Name"
+    end
+
+    test "receives time_range_changed message", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_trc", name: "Time Range Change"})
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      # Simulate time_range_changed message
+      send(view.pid, {:time_range_changed, %{"type" => "relative", "duration" => "5m"}})
+
+      # View should still render correctly
+      html = render(view)
+      assert html =~ "Time Range Change"
+    end
+
+    test "receives gnmi_metrics PubSub message with widget queries", %{conn: conn} do
+      {:ok, device} =
+        SwitchTelemetry.Devices.create_device(%{
+          id: "dev_dash_pubsub",
+          hostname: "dash-pubsub-dev.lab",
+          ip_address: "10.0.20.1",
+          platform: :cisco_iosxr,
+          transport: :gnmi
+        })
+
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_pubsub", name: "PubSub Test"})
+
+      {:ok, _widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_pubsub",
+          title: "PubSub Widget",
+          chart_type: :line,
+          queries: [%{"device_id" => device.id, "path" => "/interfaces/counters", "label" => "counters"}]
+        })
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      # Send metric via PubSub
+      metric = %{
+        time: DateTime.utc_now(),
+        path: "/interfaces/counters",
+        value_float: 99.5
+      }
+
+      Phoenix.PubSub.broadcast(
+        SwitchTelemetry.PubSub,
+        "device:#{device.id}",
+        {:gnmi_metrics, device.id, [metric]}
+      )
+
+      # View should still render without error
+      html = render(view)
+      assert html =~ "PubSub Widget"
+    end
+
+    test "handles unknown messages gracefully", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_unknown_msg", name: "Unknown Msg Test"})
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      send(view.pid, {:random_unknown_message, "foo"})
+
+      html = render(view)
+      assert html =~ "Unknown Msg Test"
+    end
+
+    test "delete_widget with non-existent widget_id is handled", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_del_nonexist", name: "Delete Nonexist"})
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+
+      # Send delete_widget event for a widget that doesn't exist on this dashboard
+      render_click(view, "delete_widget", %{"id" => "non_existent_widget_id"})
+
+      html = render(view)
+      assert html =~ "Delete Nonexist"
+    end
+  end
+
+  describe "Show - dashboard editing" do
+    test "edit action shows form", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_edit_show", name: "Edit Show Test"})
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}/edit")
+      assert html =~ "Edit Dashboard"
+      assert html =~ "Edit Show Test"
+      assert html =~ "Layout"
+      assert html =~ "Refresh interval"
+      assert html =~ "Public"
+    end
+
+    test "dashboard update with invalid data shows form again", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_edit_invalid", name: "Invalid Edit"})
+
+      {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}/edit")
+
+      # Submit with empty name (required field)
+      view
+      |> form("form", %{"dashboard" => %{"name" => ""}})
+      |> render_submit()
+
+      # The form should be shown again (no redirect)
+      html = render(view)
+      assert html =~ "Edit Dashboard"
+    end
+  end
+
+  describe "Show - widget display" do
+    test "shows no widgets message when empty", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_no_wgts", name: "No Widgets"})
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "No widgets configured"
+    end
+
+    test "hides no widgets message when widgets exist", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_has_wgts", name: "Has Widgets"})
+
+      {:ok, _} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_exists",
+          title: "Existing Widget",
+          chart_type: :bar
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      refute html =~ "No widgets configured"
+      assert html =~ "Existing Widget"
+    end
+
+    test "shows dashboard without description when none set", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_no_desc", name: "No Description"})
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "No Description"
+      # Should not render description paragraph
+      refute html =~ "<p"
+    end
+
+    test "widget with position shows correct grid span", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_grid", name: "Grid Test"})
+
+      {:ok, _widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_grid",
+          title: "Wide Widget",
+          chart_type: :area,
+          position: %{"w" => 12, "h" => 4}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "Wide Widget"
+      assert html =~ "col-span-12"
+    end
+
+    test "widget with small position shows correct grid span", %{conn: conn} do
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_grid_sm", name: "Small Grid"})
+
+      {:ok, _widget} =
+        Dashboards.add_widget(dashboard, %{
+          id: "wgt_grid_sm",
+          title: "Small Widget",
+          chart_type: :line,
+          position: %{"w" => 4, "h" => 3}
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
+      assert html =~ "col-span-4"
     end
   end
 end

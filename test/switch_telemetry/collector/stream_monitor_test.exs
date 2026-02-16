@@ -222,4 +222,221 @@ defmodule SwitchTelemetry.Collector.StreamMonitorTest do
       assert status.state == :connected
     end
   end
+
+  describe "stale stream cleanup" do
+    test "removes streams inactive for more than 2 minutes" do
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+      Process.sleep(10)
+
+      # Verify the stream exists
+      assert [_stream] = StreamMonitor.list_streams()
+
+      # Manually set the stream's connected_at and last_message_at to an old time
+      # to simulate a stale stream (more than 2 minutes old)
+      old_time = DateTime.add(DateTime.utc_now(), -180, :second)
+
+      :sys.replace_state(StreamMonitor, fn state ->
+        key = {device.id, :gnmi}
+
+        updated_streams =
+          Map.update!(state.streams, key, fn status ->
+            %{status | connected_at: old_time, last_message_at: nil}
+          end)
+
+        %{state | streams: updated_streams}
+      end)
+
+      # Trigger the cleanup timer manually
+      send(Process.whereis(StreamMonitor), :cleanup)
+      Process.sleep(50)
+
+      # Stream should be removed because it's stale
+      assert StreamMonitor.list_streams() == []
+    end
+
+    test "keeps streams that received a recent message" do
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+      Process.sleep(10)
+
+      # Set connected_at to old time but last_message_at to recent
+      old_time = DateTime.add(DateTime.utc_now(), -300, :second)
+
+      :sys.replace_state(StreamMonitor, fn state ->
+        key = {device.id, :gnmi}
+
+        updated_streams =
+          Map.update!(state.streams, key, fn status ->
+            %{status | connected_at: old_time, last_message_at: DateTime.utc_now()}
+          end)
+
+        %{state | streams: updated_streams}
+      end)
+
+      # Trigger cleanup
+      send(Process.whereis(StreamMonitor), :cleanup)
+      Process.sleep(50)
+
+      # Stream should still be present because last_message_at is recent
+      assert [stream] = StreamMonitor.list_streams()
+      assert stream.device_id == device.id
+    end
+
+    test "keeps recently connected streams with no messages" do
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+      Process.sleep(10)
+
+      # Trigger cleanup -- the stream was just created, so it's not stale
+      send(Process.whereis(StreamMonitor), :cleanup)
+      Process.sleep(50)
+
+      assert [stream] = StreamMonitor.list_streams()
+      assert stream.device_id == device.id
+    end
+
+    test "removes multiple stale streams at once" do
+      device1 = create_device()
+      device2 = create_device()
+      StreamMonitor.report_connected(device1.id, :gnmi)
+      StreamMonitor.report_connected(device2.id, :netconf)
+      Process.sleep(10)
+
+      assert length(StreamMonitor.list_streams()) == 2
+
+      # Make both stale
+      old_time = DateTime.add(DateTime.utc_now(), -300, :second)
+
+      :sys.replace_state(StreamMonitor, fn state ->
+        updated_streams =
+          state.streams
+          |> Enum.map(fn {key, status} ->
+            {key, %{status | connected_at: old_time, last_message_at: nil}}
+          end)
+          |> Map.new()
+
+        %{state | streams: updated_streams}
+      end)
+
+      send(Process.whereis(StreamMonitor), :cleanup)
+      Process.sleep(50)
+
+      assert StreamMonitor.list_streams() == []
+    end
+  end
+
+  describe "broadcast_full_update" do
+    test "broadcasts full stream list after cleanup removes stale entries" do
+      StreamMonitor.subscribe()
+
+      device_fresh = create_device()
+      device_stale = create_device()
+
+      StreamMonitor.report_connected(device_fresh.id, :gnmi)
+      StreamMonitor.report_connected(device_stale.id, :gnmi)
+
+      # Drain the individual :stream_update messages from connect
+      assert_receive {:stream_update, _}, 1000
+      assert_receive {:stream_update, _}, 1000
+
+      Process.sleep(10)
+
+      # Make one stream stale
+      old_time = DateTime.add(DateTime.utc_now(), -300, :second)
+
+      :sys.replace_state(StreamMonitor, fn state ->
+        key = {device_stale.id, :gnmi}
+
+        updated_streams =
+          Map.update!(state.streams, key, fn status ->
+            %{status | connected_at: old_time, last_message_at: nil}
+          end)
+
+        %{state | streams: updated_streams}
+      end)
+
+      # Trigger cleanup -- should broadcast full update since entries were removed
+      send(Process.whereis(StreamMonitor), :cleanup)
+
+      assert_receive {:streams_full, streams}, 1000
+      assert length(streams) == 1
+      assert hd(streams).device_id == device_fresh.id
+    end
+
+    test "does not broadcast full update when no stale entries are removed" do
+      StreamMonitor.subscribe()
+
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+
+      # Drain the :stream_update from connect
+      assert_receive {:stream_update, _}, 1000
+
+      Process.sleep(10)
+
+      # Trigger cleanup -- nothing stale, so no full update broadcast
+      send(Process.whereis(StreamMonitor), :cleanup)
+      Process.sleep(50)
+
+      refute_receive {:streams_full, _}
+    end
+  end
+
+  describe "multiple errors" do
+    test "increments error count for repeated errors" do
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+      Process.sleep(10)
+
+      StreamMonitor.report_error(device.id, :gnmi, "timeout")
+      StreamMonitor.report_error(device.id, :gnmi, "connection refused")
+      Process.sleep(10)
+
+      stream = StreamMonitor.get_stream(device.id, :gnmi)
+      assert stream.error_count == 2
+      assert stream.last_error == "connection refused"
+    end
+
+    test "error count accumulates across many errors" do
+      device = create_device()
+      StreamMonitor.report_connected(device.id, :gnmi)
+      Process.sleep(10)
+
+      for i <- 1..10 do
+        StreamMonitor.report_error(device.id, :gnmi, "error #{i}")
+      end
+
+      Process.sleep(50)
+
+      stream = StreamMonitor.get_stream(device.id, :gnmi)
+      assert stream.error_count == 10
+      assert stream.last_error == "error 10"
+    end
+
+    test "errors on non-existent stream do not create new entries" do
+      StreamMonitor.report_error("nonexistent-device", :gnmi, "some error")
+      Process.sleep(10)
+
+      assert StreamMonitor.list_streams() == []
+    end
+
+    test "messages on non-existent stream do not create new entries" do
+      StreamMonitor.report_message("nonexistent-device", :gnmi)
+      Process.sleep(10)
+
+      assert StreamMonitor.list_streams() == []
+    end
+  end
+
+  describe "handle_info unknown messages" do
+    test "ignores unknown messages without crashing" do
+      # Send an unknown message to the StreamMonitor process
+      send(Process.whereis(StreamMonitor), :some_unknown_message)
+      Process.sleep(10)
+
+      # Should still be alive and functional
+      assert StreamMonitor.list_streams() == []
+    end
+  end
 end

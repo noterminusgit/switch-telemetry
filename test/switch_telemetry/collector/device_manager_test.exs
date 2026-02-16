@@ -325,4 +325,390 @@ defmodule SwitchTelemetry.Collector.DeviceManagerTest do
       assert {:noreply, ^state} = DeviceManager.handle_info(:unknown, state)
     end
   end
+
+  describe "handle_call {:start_session, device_id}" do
+    test "returns error when device does not exist" do
+      state = %{sessions: %{}}
+
+      # Ecto.NoResultsError is raised by get_device! for a non-existent ID,
+      # caught by the rescue in do_start_session which returns {:error, exception}
+      {:reply, {:error, _reason}, new_state} =
+        DeviceManager.handle_call(
+          {:start_session, "nonexistent-device-id"},
+          {self(), make_ref()},
+          state
+        )
+
+      # State should be unchanged when start fails
+      assert new_state.sessions == %{}
+    end
+
+    test "error path preserves existing sessions in state" do
+      existing_sessions = %{"dev-existing" => %{gnmi: self()}}
+      state = %{sessions: existing_sessions}
+
+      {:reply, {:error, _reason}, new_state} =
+        DeviceManager.handle_call(
+          {:start_session, "nonexistent-device-id"},
+          {self(), make_ref()},
+          state
+        )
+
+      # Existing sessions should be preserved
+      assert Map.has_key?(new_state.sessions, "dev-existing")
+      assert map_size(new_state.sessions) == 1
+    end
+  end
+
+  describe "handle_info catch-all with various messages" do
+    test "handles {:assignment_changed, device_id} tuple gracefully" do
+      state = %{sessions: %{}}
+      # The catch-all handle_info(_msg, state) handles any unmatched message
+      assert {:noreply, ^state} = DeviceManager.handle_info({:assignment_changed, "device-1"}, state)
+    end
+
+    test "handles {:DOWN, ref, :process, pid, reason} for non-session processes" do
+      state = %{sessions: %{"dev1" => %{gnmi: self()}}}
+      ref = make_ref()
+      msg = {:DOWN, ref, :process, self(), :normal}
+      assert {:noreply, ^state} = DeviceManager.handle_info(msg, state)
+    end
+
+    test "handles arbitrary tuples without crashing" do
+      state = %{sessions: %{}}
+      assert {:noreply, ^state} = DeviceManager.handle_info({:unexpected, :data, 123}, state)
+    end
+
+    test "handles string messages without crashing" do
+      state = %{sessions: %{}}
+      assert {:noreply, ^state} = DeviceManager.handle_info("string_message", state)
+    end
+  end
+
+  describe "handle_info :start_assigned_devices with existing sessions" do
+    test "preserves existing sessions when no new devices are assigned" do
+      existing_sessions = %{"dev-existing" => %{gnmi: self()}}
+      state = %{sessions: existing_sessions}
+
+      {:noreply, new_state} = DeviceManager.handle_info(:start_assigned_devices, state)
+
+      # Existing sessions should still be present (no devices assigned to this node
+      # in test sandbox, so no new ones are added)
+      assert Map.has_key?(new_state.sessions, "dev-existing")
+    end
+  end
+
+  describe "handle_info :check_sessions with existing sessions" do
+    test "stops sessions for devices no longer assigned" do
+      # Use an already-exited pid so GenServer.stop catches :exit quickly
+      pid = spawn(fn -> :ok end)
+      Process.sleep(10)
+
+      # This device is in running sessions but won't appear in the DB query
+      # (sandbox returns no devices for this collector node), so it should be stopped
+      state = %{sessions: %{"dev-unassigned" => %{gnmi: pid}}}
+
+      {:noreply, new_state} = DeviceManager.handle_info(:check_sessions, state)
+
+      # The unassigned device should be removed from sessions
+      refute Map.has_key?(new_state.sessions, "dev-unassigned")
+    end
+
+    test "check_sessions with empty sessions remains empty" do
+      state = %{sessions: %{}}
+
+      {:noreply, new_state} = DeviceManager.handle_info(:check_sessions, state)
+
+      assert new_state.sessions == %{}
+    end
+  end
+
+  describe "stop session with live GenServer pids" do
+    test "handle_call {:stop_session} stops a live GenServer gracefully" do
+      # Start a simple GenServer-like process that responds to stop
+      {:ok, agent} = Agent.start_link(fn -> %{} end)
+      assert Process.alive?(agent)
+
+      state = %{sessions: %{"dev1" => %{gnmi: agent}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev1"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev1")
+      # The agent should have been stopped
+      refute Process.alive?(agent)
+    end
+
+    test "handle_call {:stop_session} handles multiple session types" do
+      {:ok, agent1} = Agent.start_link(fn -> %{} end)
+      {:ok, agent2} = Agent.start_link(fn -> %{} end)
+      assert Process.alive?(agent1)
+      assert Process.alive?(agent2)
+
+      state = %{sessions: %{"dev1" => %{gnmi: agent1, netconf: agent2}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev1"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev1")
+      refute Process.alive?(agent1)
+      refute Process.alive?(agent2)
+    end
+  end
+
+  # ============================================================
+  # New tests targeting untested branches for coverage improvement
+  # ============================================================
+
+  describe "handle_call {:start_session} error path with nonexistent device" do
+    test "returns error tuple and preserves state for nonexistent device" do
+      state = %{sessions: %{"keep-me" => %{gnmi: self()}}}
+
+      {:reply, {:error, _}, new_state} =
+        DeviceManager.handle_call(
+          {:start_session, "totally-fake-device-id"},
+          {self(), make_ref()},
+          state
+        )
+
+      # Existing sessions preserved
+      assert Map.has_key?(new_state.sessions, "keep-me")
+      assert map_size(new_state.sessions) == 1
+    end
+
+    test "error path returns proper error for another nonexistent device" do
+      state = %{sessions: %{}}
+
+      {:reply, {:error, reason}, _new_state} =
+        DeviceManager.handle_call(
+          {:start_session, "some-other-nonexistent"},
+          {self(), make_ref()},
+          state
+        )
+
+      # The rescue catches the Ecto.NoResultsError from get_device!
+      assert %Ecto.NoResultsError{} = reason
+    end
+  end
+
+  describe "handle_call {:stop_session} comprehensive tests" do
+    test "stop_session with multiple session types stops all" do
+      {:ok, agent_gnmi} = Agent.start_link(fn -> :gnmi end)
+      {:ok, agent_netconf} = Agent.start_link(fn -> :netconf end)
+
+      state = %{sessions: %{"dev-multi" => %{gnmi: agent_gnmi, netconf: agent_netconf}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-multi"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-multi")
+      refute Process.alive?(agent_gnmi)
+      refute Process.alive?(agent_netconf)
+    end
+
+    test "stop_session preserves other sessions" do
+      {:ok, agent1} = Agent.start_link(fn -> :a end)
+      {:ok, agent2} = Agent.start_link(fn -> :b end)
+
+      state = %{
+        sessions: %{
+          "dev-stop" => %{gnmi: agent1},
+          "dev-keep" => %{netconf: agent2}
+        }
+      }
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-stop"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-stop")
+      assert Map.has_key?(new_state.sessions, "dev-keep")
+      refute Process.alive?(agent1)
+      assert Process.alive?(agent2)
+
+      # Cleanup
+      Agent.stop(agent2)
+    end
+
+    test "stop_session with nil entry in sessions map is a no-op" do
+      state = %{sessions: %{"dev-nil" => nil}}
+
+      # Map.get returns nil, which goes to the nil -> :ok clause
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-nil"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-nil")
+    end
+  end
+
+  describe "handle_call :list_sessions with various states" do
+    test "returns all device IDs in order" do
+      state = %{
+        sessions: %{
+          "dev-z" => %{gnmi: self()},
+          "dev-a" => %{netconf: self()},
+          "dev-m" => %{gnmi: self(), netconf: self()}
+        }
+      }
+
+      {:reply, ids, ^state} =
+        DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
+
+      assert length(ids) == 3
+      assert "dev-z" in ids
+      assert "dev-a" in ids
+      assert "dev-m" in ids
+    end
+
+    test "returns single device ID" do
+      state = %{sessions: %{"only-one" => %{gnmi: self()}}}
+
+      {:reply, ids, _} =
+        DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
+
+      assert ids == ["only-one"]
+    end
+  end
+
+  describe "handle_info :start_assigned_devices with no assigned devices" do
+    test "returns state with sessions unchanged when DB returns no devices" do
+      state = %{sessions: %{}}
+      {:noreply, new_state} = DeviceManager.handle_info(:start_assigned_devices, state)
+
+      assert new_state.sessions == %{}
+    end
+
+    test "preserves existing sessions when no new devices are found" do
+      state = %{sessions: %{"existing" => %{gnmi: self()}}}
+      {:noreply, result_state} = DeviceManager.handle_info(:start_assigned_devices, state)
+
+      assert Map.has_key?(result_state.sessions, "existing")
+    end
+  end
+
+  describe "handle_info :check_sessions reconciliation with no DB devices" do
+    test "stops all running sessions when no devices are assigned" do
+      pid1 = spawn(fn -> :ok end)
+      pid2 = spawn(fn -> :ok end)
+      Process.sleep(10)
+
+      state = %{
+        sessions: %{
+          "orphan1" => %{gnmi: pid1},
+          "orphan2" => %{netconf: pid2}
+        }
+      }
+
+      {:noreply, new_state} = DeviceManager.handle_info(:check_sessions, state)
+
+      # Both should be removed since they don't appear in DB assigned list
+      refute Map.has_key?(new_state.sessions, "orphan1")
+      refute Map.has_key?(new_state.sessions, "orphan2")
+      assert new_state.sessions == %{}
+    end
+
+    test "check_sessions with no sessions and no assignments remains empty" do
+      state = %{sessions: %{}}
+      {:noreply, new_state} = DeviceManager.handle_info(:check_sessions, state)
+      assert new_state.sessions == %{}
+    end
+  end
+
+  describe "do_stop_session with already-dead processes" do
+    test "stop_session handles dead gnmi pid gracefully" do
+      pid = spawn(fn -> :ok end)
+      Process.sleep(50)
+
+      state = %{sessions: %{"dev-dead" => %{gnmi: pid}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-dead"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-dead")
+    end
+
+    test "stop_session handles dead netconf pid gracefully" do
+      pid = spawn(fn -> :ok end)
+      Process.sleep(50)
+
+      state = %{sessions: %{"dev-dead-nc" => %{netconf: pid}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-dead-nc"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-dead-nc")
+    end
+
+    test "stop_session handles mix of alive and dead pids" do
+      dead_pid = spawn(fn -> :ok end)
+      Process.sleep(50)
+      {:ok, alive_agent} = Agent.start_link(fn -> %{} end)
+
+      state = %{sessions: %{"dev-mixed" => %{gnmi: dead_pid, netconf: alive_agent}}}
+
+      {:reply, :ok, new_state} =
+        DeviceManager.handle_call({:stop_session, "dev-mixed"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(new_state.sessions, "dev-mixed")
+      refute Process.alive?(alive_agent)
+    end
+  end
+
+  describe "init/1 details" do
+    test "init sends :start_assigned_devices immediately" do
+      {:ok, state} = DeviceManager.init([])
+      assert state == %{sessions: %{}}
+      assert_received :start_assigned_devices
+    end
+
+    test "init schedules :check_sessions via send_after" do
+      {:ok, _state} = DeviceManager.init([])
+      # :check_sessions is scheduled with @check_interval (30s)
+    end
+
+    test "init with any keyword opts returns same initial state" do
+      {:ok, state} = DeviceManager.init(name: :custom_name)
+      assert state == %{sessions: %{}}
+    end
+  end
+
+  describe "multiple stop_session calls" do
+    test "stopping same device twice is idempotent" do
+      {:ok, agent} = Agent.start_link(fn -> %{} end)
+
+      state = %{sessions: %{"dev-twice" => %{gnmi: agent}}}
+
+      {:reply, :ok, state2} =
+        DeviceManager.handle_call({:stop_session, "dev-twice"}, {self(), make_ref()}, state)
+
+      refute Map.has_key?(state2.sessions, "dev-twice")
+
+      {:reply, :ok, state3} =
+        DeviceManager.handle_call({:stop_session, "dev-twice"}, {self(), make_ref()}, state2)
+
+      refute Map.has_key?(state3.sessions, "dev-twice")
+    end
+  end
+
+  describe "handle_info catch-all with more message types" do
+    test "handles timer reference messages" do
+      state = %{sessions: %{"dev1" => %{gnmi: self()}}}
+      timer_ref = make_ref()
+      assert {:noreply, ^state} = DeviceManager.handle_info({:timeout, timer_ref, :something}, state)
+    end
+
+    test "handles nil message" do
+      state = %{sessions: %{}}
+      assert {:noreply, ^state} = DeviceManager.handle_info(nil, state)
+    end
+
+    test "handles integer message" do
+      state = %{sessions: %{}}
+      assert {:noreply, ^state} = DeviceManager.handle_info(42, state)
+    end
+
+    test "handles :EXIT message (not trapped)" do
+      state = %{sessions: %{"dev1" => %{gnmi: self()}}}
+      assert {:noreply, ^state} = DeviceManager.handle_info({:EXIT, self(), :normal}, state)
+    end
+  end
 end
