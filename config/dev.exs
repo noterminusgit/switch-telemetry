@@ -16,7 +16,8 @@ config :switch_telemetry, SwitchTelemetryWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "/WexLjAVxUhW8z2vKTKH9anh3v7k60WfWCGMOUreQ/xxzQkLwU/TmbQ7rKLd/1MM",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:switch_telemetry, ~w(--sourcemap=inline --watch)]}
+    esbuild: {Esbuild, :install_and_run, [:switch_telemetry, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:switch_telemetry, ~w(--watch)]}
   ]
 
 config :switch_telemetry, SwitchTelemetryWeb.Endpoint,

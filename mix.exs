@@ -166,9 +166,13 @@ defmodule SwitchTelemetry.MixProject do
       "ecto.setup": ["ecto.create", "ecto.migrate", "run priv/repo/seeds.exs"],
       "ecto.reset": ["ecto.drop", "ecto.setup"],
       test: ["ecto.create --quiet", "ecto.migrate --quiet", "test"],
-      "assets.setup": ["esbuild.install --if-missing"],
-      "assets.build": ["esbuild switch_telemetry"],
-      "assets.deploy": ["esbuild switch_telemetry --minify", "phx.digest"]
+      "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
+      "assets.build": ["tailwind switch_telemetry", "esbuild switch_telemetry"],
+      "assets.deploy": [
+        "tailwind switch_telemetry --minify",
+        "esbuild switch_telemetry --minify",
+        "phx.digest"
+      ]
     ]
   end
 end

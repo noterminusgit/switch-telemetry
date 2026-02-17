@@ -26,7 +26,15 @@ config :esbuild,
     }
   ]
 
-config :tailwind, version: "4.1.12"
+config :tailwind,
+  version: "4.1.12",
+  switch_telemetry: [
+    args: ~w(
+      --input=css/app.css
+      --output=../priv/static/assets/app.css
+    ),
+    cd: Path.expand("../assets", __DIR__)
+  ]
 
 config :logger, :console,
   format: "$time $metadata[$level] $message\n",
