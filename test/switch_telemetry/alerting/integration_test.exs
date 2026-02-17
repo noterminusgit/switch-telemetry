@@ -55,7 +55,7 @@ defmodule SwitchTelemetry.Alerting.IntegrationTest do
       end
 
     Metrics.insert_batch(metrics)
-    Process.sleep(500)
+    Process.sleep(1000)
 
     # 3. Run evaluator — should fire
     assert :ok == perform_job(AlertEvaluator, %{})
@@ -89,7 +89,7 @@ defmodule SwitchTelemetry.Alerting.IntegrationTest do
       end
 
     Metrics.insert_batch(low_metrics)
-    Process.sleep(500)
+    Process.sleep(1000)
 
     # 6. Run evaluator — should resolve
     assert :ok == perform_job(AlertEvaluator, %{})

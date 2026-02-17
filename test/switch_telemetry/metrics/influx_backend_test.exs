@@ -63,7 +63,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       metric = build_metric(%{source: :netconf})
       assert {1, nil} = InfluxBackend.insert_batch([metric])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev_influx_test", minutes: 5, limit: 10)
       assert length(results) >= 1
@@ -74,7 +74,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       metric = build_metric(%{value_float: nil, value_int: nil, value_str: nil})
       assert {1, nil} = InfluxBackend.insert_batch([metric])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev_influx_test", minutes: 5, limit: 10)
       assert length(results) >= 1
@@ -103,7 +103,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         build_metric(%{time: t3, value_float: 3.0, device_id: "dev_order_test"})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev_order_test", minutes: 5, limit: 10)
       assert length(results) == 3
@@ -126,7 +126,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         end
 
       InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev_limit_test", minutes: 5, limit: 3)
       assert length(results) == 3
@@ -142,7 +142,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         build_metric(%{time: old, value_float: 2.0, device_id: "dev_min_test"})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev_min_test", minutes: 2, limit: 100)
       # Only the recent one should appear (within last 2 minutes)
@@ -155,7 +155,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         build_metric(%{value_float: 55.5, device_id: "dev_keys_test"})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       [metric | _] = InfluxBackend.get_latest("dev_keys_test", minutes: 5, limit: 1)
       assert Map.has_key?(metric, :time)
@@ -189,7 +189,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         })
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       time_range = %{start: DateTime.add(now, -1800, :second), end: now}
       result = InfluxBackend.query("dev_short_q", "/cpu/util", time_range)
@@ -244,7 +244,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         build_metric(%{time: t3, value_float: 20.0, device_id: "dev_raw_agg", path: "/cpu"})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       time_range = %{
         start: minute_start,
@@ -338,7 +338,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
         })
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       time_range = %{
         start: minute_start,
@@ -390,7 +390,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-int-test", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -413,7 +413,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-int-large", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -435,7 +435,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-int-zero", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -461,7 +461,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-str-test", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -484,7 +484,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-str-long", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -506,7 +506,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {1, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-str-only", limit: 10, minutes: 5)
       assert length(results) > 0
@@ -557,7 +557,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackendTest do
       ]
 
       assert {3, nil} = InfluxBackend.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = InfluxBackend.get_latest("dev-mixed-batch", limit: 10, minutes: 5)
       assert length(results) == 3

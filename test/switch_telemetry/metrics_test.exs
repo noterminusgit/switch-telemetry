@@ -65,7 +65,7 @@ defmodule SwitchTelemetry.MetricsTest do
       ])
 
       # Allow InfluxDB to index the data
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = Metrics.get_latest("dev_metrics_test")
       assert length(results) == 2
@@ -82,7 +82,7 @@ defmodule SwitchTelemetry.MetricsTest do
         end
 
       Metrics.insert_batch(metrics)
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = Metrics.get_latest("dev_metrics_test", limit: 3)
       assert length(results) == 3
@@ -98,7 +98,7 @@ defmodule SwitchTelemetry.MetricsTest do
         build_metric(%{time: old, value_float: 2.0})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       results = Metrics.get_latest("dev_metrics_test", minutes: 2)
       assert length(results) == 1
@@ -123,7 +123,7 @@ defmodule SwitchTelemetry.MetricsTest do
         build_metric(%{time: t3, device_id: "dev_ts", path: "/cpu", value_float: 30.0})
       ])
 
-      Process.sleep(500)
+      Process.sleep(1000)
 
       time_range = %{start: DateTime.add(now, -300, :second), end: now}
       results = Metrics.get_time_series("dev_ts", "/cpu", "1 minute", time_range)
