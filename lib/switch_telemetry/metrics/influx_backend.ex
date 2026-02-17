@@ -69,7 +69,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
 
     case InfluxDB.query(flux) do
       rows when is_list(rows) ->
-        Enum.map(rows, &normalize_metric/1)
+        rows |> List.flatten() |> Enum.map(&normalize_metric/1)
 
       _ ->
         []
