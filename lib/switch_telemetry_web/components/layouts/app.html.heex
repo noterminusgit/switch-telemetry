@@ -1,4 +1,4 @@
-<div class="min-h-screen bg-gray-50">
+<div class={["min-h-screen bg-gray-50", @current_user && "md:flex"]}>
   <SwitchTelemetryWeb.Components.MobileNav.mobile_nav
     :if={@current_user}
     current_user={@current_user}
@@ -11,7 +11,7 @@
     current_path={@current_path}
   />
 
-  <div class={[@current_user && "md:pl-16 lg:pl-60"]}>
+  <div class={[@current_user && "flex-1 min-w-0"]}>
     <SwitchTelemetryWeb.Components.TopBar.top_bar
       current_user={@current_user}
       on_menu_click={SwitchTelemetryWeb.Components.MobileNav.show_mobile_nav("mobile-nav")}
