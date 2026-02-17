@@ -364,7 +364,8 @@ defmodule SwitchTelemetry.Collector.DeviceManagerTest do
     test "handles {:assignment_changed, device_id} tuple gracefully" do
       state = %{sessions: %{}}
       # The catch-all handle_info(_msg, state) handles any unmatched message
-      assert {:noreply, ^state} = DeviceManager.handle_info({:assignment_changed, "device-1"}, state)
+      assert {:noreply, ^state} =
+               DeviceManager.handle_info({:assignment_changed, "device-1"}, state)
     end
 
     test "handles {:DOWN, ref, :process, pid, reason} for non-session processes" do
@@ -693,7 +694,9 @@ defmodule SwitchTelemetry.Collector.DeviceManagerTest do
     test "handles timer reference messages" do
       state = %{sessions: %{"dev1" => %{gnmi: self()}}}
       timer_ref = make_ref()
-      assert {:noreply, ^state} = DeviceManager.handle_info({:timeout, timer_ref, :something}, state)
+
+      assert {:noreply, ^state} =
+               DeviceManager.handle_info({:timeout, timer_ref, :something}, state)
     end
 
     test "handles nil message" do

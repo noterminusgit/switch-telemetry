@@ -365,7 +365,8 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "clicking export triggers push_event", %{conn: conn} do
-      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_exp_click", name: "Export Click"})
+      {:ok, dashboard} =
+        Dashboards.create_dashboard(%{id: "dash_exp_click", name: "Export Click"})
 
       {:ok, widget} =
         Dashboards.add_widget(dashboard, %{
@@ -437,7 +438,9 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
           id: "wgt_pubsub",
           title: "PubSub Widget",
           chart_type: :line,
-          queries: [%{"device_id" => device.id, "path" => "/interfaces/counters", "label" => "counters"}]
+          queries: [
+            %{"device_id" => device.id, "path" => "/interfaces/counters", "label" => "counters"}
+          ]
         })
 
       {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")

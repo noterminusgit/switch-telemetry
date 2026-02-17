@@ -765,5 +765,4 @@ defmodule SwitchTelemetry.Collector.NetconfSessionTest do
       assert path == "/"
     end
   end
-
 end

@@ -370,8 +370,8 @@ defmodule SwitchTelemetryWeb.Components.TelemetryChartTest do
         %{
           label: "Integer Timestamps",
           data: [
-            %{time: 1704067200, value: 42.0},
-            %{time: 1704067260, value: 43.0}
+            %{time: 1_704_067_200, value: 42.0},
+            %{time: 1_704_067_260, value: 43.0}
           ]
         }
       ]

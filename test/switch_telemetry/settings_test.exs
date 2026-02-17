@@ -529,7 +529,8 @@ defmodule SwitchTelemetry.SettingsTest do
       assert updated.id == 1
       assert updated.port == 465
       assert updated.enabled == true
-      assert updated.relay == "smtp.example.com" # Previous value retained
+      # Previous value retained
+      assert updated.relay == "smtp.example.com"
     end
 
     test "password field is encrypted" do

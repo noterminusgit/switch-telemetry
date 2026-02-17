@@ -724,8 +724,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       device = %{id: "dev1", hostname: "switch1", ip_address: "10.0.0.1", gnmi_port: 6030}
 
       {:ok,
-       device: device,
-       state: %GnmiSession{device: device, retry_count: 0, channel: :fake_channel}}
+       device: device, state: %GnmiSession{device: device, retry_count: 0, channel: :fake_channel}}
     end
 
     test "stream_ended result demonitors and schedules retry", %{state: state} do
@@ -787,7 +786,8 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       other_ref = make_ref()
       state_with_ref = %{state | task_ref: ref, stream: :fake_stream}
 
-      {:noreply, unchanged_state} = GnmiSession.handle_info({other_ref, :stream_ended}, state_with_ref)
+      {:noreply, unchanged_state} =
+        GnmiSession.handle_info({other_ref, :stream_ended}, state_with_ref)
 
       # The non-matching ref goes to catch-all handler, state unchanged
       assert unchanged_state.stream == :fake_stream
@@ -1218,9 +1218,10 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       {:ok, state: state, device: device}
     end
 
-    test "successful connection updates device status, resets retry_count, and sends :subscribe", %{
-      state: state
-    } do
+    test "successful connection updates device status, resets retry_count, and sends :subscribe",
+         %{
+           state: state
+         } do
       MockGrpcClient
       |> expect(:connect, fn target, _opts ->
         assert target == "#{state.device.ip_address}:#{state.device.gnmi_port}"
@@ -1605,7 +1606,10 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         SwitchTelemetry.Repo.insert(%SwitchTelemetry.Collector.Subscription{
           id: "sub-multi1-#{System.unique_integer([:positive])}",
           device_id: device.id,
-          paths: ["/interfaces/interface/state/counters", "/interfaces/interface/state/oper-status"],
+          paths: [
+            "/interfaces/interface/state/counters",
+            "/interfaces/interface/state/oper-status"
+          ],
           mode: :stream,
           sample_interval_ns: 10_000_000_000,
           encoding: :proto,
@@ -1698,7 +1702,12 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       prev_grpc = Application.get_env(:switch_telemetry, :grpc_client)
       prev_metrics = Application.get_env(:switch_telemetry, :metrics_backend)
       Application.put_env(:switch_telemetry, :grpc_client, MockGrpcClient)
-      Application.put_env(:switch_telemetry, :metrics_backend, SwitchTelemetry.Metrics.MockBackend)
+
+      Application.put_env(
+        :switch_telemetry,
+        :metrics_backend,
+        SwitchTelemetry.Metrics.MockBackend
+      )
 
       on_exit(fn ->
         if prev_grpc,

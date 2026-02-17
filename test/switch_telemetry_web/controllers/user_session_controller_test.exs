@@ -268,7 +268,9 @@ defmodule SwitchTelemetryWeb.UserSessionControllerTest do
       assert updated_user.role != :admin
     end
 
-    test "promotes user to admin on magic link callback if email is on admin allowlist", %{conn: conn} do
+    test "promotes user to admin on magic link callback if email is on admin allowlist", %{
+      conn: conn
+    } do
       {:ok, user} =
         SwitchTelemetry.Accounts.register_user(%{
           email: "magic-promote@example.com",

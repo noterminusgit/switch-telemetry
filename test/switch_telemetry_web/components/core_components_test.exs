@@ -261,34 +261,57 @@ defmodule SwitchTelemetryWeb.CoreComponentsTest do
 
   describe "button/1" do
     test "renders a button with indigo styling" do
-      html = render_component(&button/1, %{inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Click Me" end}]})
+      html =
+        render_component(&button/1, %{
+          inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Click Me" end}]
+        })
+
       assert html =~ "Click Me"
       assert html =~ "bg-indigo-600"
       assert html =~ "<button"
     end
 
     test "renders with custom class" do
-      html = render_component(&button/1, %{class: "ml-4", inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Save" end}]})
+      html =
+        render_component(&button/1, %{
+          class: "ml-4",
+          inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Save" end}]
+        })
+
       assert html =~ "ml-4"
       assert html =~ "Save"
     end
 
     test "renders with type attribute" do
-      html = render_component(&button/1, %{type: "submit", inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Submit" end}]})
+      html =
+        render_component(&button/1, %{
+          type: "submit",
+          inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Submit" end}]
+        })
+
       assert html =~ ~s(type="submit")
     end
   end
 
   describe "header/1" do
     test "renders header text in h1 tag" do
-      html = render_component(&header/1, %{inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Page Title" end}]})
+      html =
+        render_component(&header/1, %{
+          inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Page Title" end}]
+        })
+
       assert html =~ "<header"
       assert html =~ "<h1"
       assert html =~ "Page Title"
     end
 
     test "renders with custom class" do
-      html = render_component(&header/1, %{class: "mb-8", inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Title" end}]})
+      html =
+        render_component(&header/1, %{
+          class: "mb-8",
+          inner_block: [%{__slot__: :inner_block, inner_block: fn _, _ -> "Title" end}]
+        })
+
       assert html =~ "mb-8"
     end
   end
