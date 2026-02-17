@@ -73,6 +73,123 @@ defmodule SwitchTelemetryWeb.UserLiveTest do
       refute html =~
                ~s|phx-click="delete_user" phx-value-id="#{admin.id}"|
     end
+
+    test "shows Add User button", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/admin/users")
+      assert html =~ "Add User"
+    end
+
+    test "navigates to new user form", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/admin/users/new")
+      assert html =~ "Add User"
+      assert html =~ "new-user-form"
+    end
+
+    test "creates a new user", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/users/new")
+
+      view
+      |> form("#new-user-form", %{
+        "user" => %{
+          "email" => "newuser@example.com",
+          "password" => "valid_password_123",
+          "role" => "operator"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "User created successfully."
+      assert html =~ "newuser@example.com"
+    end
+
+    test "validates new user form", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/users/new")
+
+      html =
+        view
+        |> form("#new-user-form", %{
+          "user" => %{
+            "email" => "notanemail",
+            "password" => "short"
+          }
+        })
+        |> render_change()
+
+      assert html =~ "must have the @ sign and no spaces"
+    end
+
+    test "shows admin email allowlist section", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/admin/users")
+      assert html =~ "Admin Email Allowlist"
+    end
+
+    test "adds an admin email", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/users")
+
+      view
+      |> form("#admin-email-form", %{
+        "admin_email" => %{"email" => "allowed@example.com"}
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "Admin email added."
+      assert html =~ "allowed@example.com"
+    end
+
+    test "validates admin email form", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/admin/users")
+
+      html =
+        view
+        |> form("#admin-email-form", %{
+          "admin_email" => %{"email" => "notvalid"}
+        })
+        |> render_change()
+
+      assert html =~ "must have the @ sign and no spaces"
+    end
+
+    test "deletes an admin email", %{conn: conn} do
+      {:ok, admin_email} = Accounts.create_admin_email(%{email: "removeme@example.com"})
+
+      {:ok, view, html} = live(conn, ~p"/admin/users")
+      assert html =~ "removeme@example.com"
+
+      view
+      |> element(~s|button[phx-click="delete_admin_email"][phx-value-id="#{admin_email.id}"]|)
+      |> render_click()
+
+      html = render(view)
+      assert html =~ "Admin email removed."
+      refute html =~ "removeme@example.com"
+    end
+
+    test "shows SMTP section on settings for admin", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/settings")
+      assert html =~ "Email Configuration"
+    end
+
+    test "saves SMTP settings", %{conn: conn} do
+      {:ok, view, _html} = live(conn, ~p"/settings")
+
+      view
+      |> form("#smtp_form", %{
+        "smtp_setting" => %{
+          "relay" => "smtp.example.com",
+          "port" => "587",
+          "username" => "user@example.com",
+          "password" => "secret",
+          "from_email" => "noreply@example.com",
+          "from_name" => "Test App"
+        }
+      })
+      |> render_submit()
+
+      html = render(view)
+      assert html =~ "SMTP settings updated successfully."
+    end
   end
 
   describe "Index (non-admin user)" do
@@ -206,6 +323,11 @@ defmodule SwitchTelemetryWeb.UserLiveTest do
         |> render_submit()
 
       assert html =~ "is not valid"
+    end
+
+    test "non-admin does not see SMTP section", %{conn: conn} do
+      {:ok, _view, html} = live(conn, ~p"/settings")
+      refute html =~ "Email Configuration"
     end
   end
 end

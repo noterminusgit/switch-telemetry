@@ -63,14 +63,12 @@ defmodule SwitchTelemetryWeb.Components.NavigationTest do
       html = render_component(&sidebar/1, %{current_user: viewer_user(), current_path: "/"})
 
       refute html =~ "Users"
-      refute html =~ "Admin Emails"
     end
 
     test "shows admin items for admin users" do
       html = render_component(&sidebar/1, %{current_user: admin_user(), current_path: "/"})
 
       assert html =~ "Users"
-      assert html =~ "Admin Emails"
     end
   end
 
@@ -119,7 +117,6 @@ defmodule SwitchTelemetryWeb.Components.NavigationTest do
         render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
 
       refute html =~ "Users"
-      refute html =~ "Admin Emails"
     end
 
     test "shows admin items for admin users" do
@@ -127,7 +124,6 @@ defmodule SwitchTelemetryWeb.Components.NavigationTest do
         render_component(&mobile_nav/1, %{current_user: admin_user(), current_path: "/"})
 
       assert html =~ "Users"
-      assert html =~ "Admin Emails"
     end
 
     test "renders app title" do

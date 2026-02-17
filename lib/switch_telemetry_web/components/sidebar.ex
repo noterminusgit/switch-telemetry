@@ -65,14 +65,6 @@ defmodule SwitchTelemetryWeb.Components.Sidebar do
               label="Users"
               admin={true}
             />
-            <.nav_item
-              :if={@current_user.role == :admin}
-              path={~p"/admin/admin_emails"}
-              current_path={@current_path}
-              icon="hero-envelope"
-              label="Admin Emails"
-              admin={true}
-            />
           </nav>
         </div>
       </div>

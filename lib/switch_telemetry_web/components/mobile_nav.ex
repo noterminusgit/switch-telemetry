@@ -91,14 +91,6 @@ defmodule SwitchTelemetryWeb.Components.MobileNav do
                       label="Users"
                       nav_id={@id}
                     />
-                    <.mobile_nav_item
-                      :if={@current_user.role == :admin}
-                      path={~p"/admin/admin_emails"}
-                      current_path={@current_path}
-                      icon="hero-envelope"
-                      label="Admin Emails"
-                      nav_id={@id}
-                    />
                   </ul>
                 </li>
               </ul>

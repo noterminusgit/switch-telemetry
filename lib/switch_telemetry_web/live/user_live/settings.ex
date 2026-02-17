@@ -2,6 +2,7 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
   use SwitchTelemetryWeb, :live_view
 
   alias SwitchTelemetry.Accounts
+  alias SwitchTelemetry.Settings
 
   @impl true
   @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
@@ -9,12 +10,16 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
     user = socket.assigns.current_user
     email_changeset = Accounts.change_user_email(user)
     password_changeset = Accounts.change_user_password(user)
+    smtp_settings = Settings.get_smtp_settings()
+    smtp_changeset = Settings.change_smtp_settings(smtp_settings)
 
     {:ok,
      socket
      |> assign(:page_title, "Settings")
      |> assign(:email_form, to_form(email_changeset))
-     |> assign(:password_form, to_form(password_changeset))}
+     |> assign(:password_form, to_form(password_changeset))
+     |> assign(:smtp_settings, smtp_settings)
+     |> assign(:smtp_form, to_form(smtp_changeset))}
   end
 
   @impl true
@@ -73,6 +78,34 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
           />
           <:actions>
             <.button phx-disable-with="Changing...">Change Password</.button>
+          </:actions>
+        </.simple_form>
+      </div>
+      <div :if={@current_user.role == :admin}>
+        <h2 class="text-lg font-semibold text-gray-900 pt-8 mb-4">Email Configuration</h2>
+        <p class="text-sm text-gray-500 mb-6">
+          Configure SMTP settings for outgoing emails (magic links, alerts, password resets).
+        </p>
+        <.simple_form
+          for={@smtp_form}
+          id="smtp_form"
+          phx-change="validate_smtp"
+          phx-submit="update_smtp"
+        >
+          <div class="flex items-center gap-4 mb-4">
+            <.input field={@smtp_form[:enabled]} type="checkbox" label="Enable SMTP" />
+          </div>
+          <.input field={@smtp_form[:relay]} type="text" label="SMTP Relay" placeholder="smtp.example.com" />
+          <.input field={@smtp_form[:port]} type="number" label="Port" />
+          <.input field={@smtp_form[:username]} type="text" label="Username" />
+          <.input field={@smtp_form[:password]} type="password" label="Password" value="" />
+          <.input field={@smtp_form[:from_email]} type="email" label="From Email" />
+          <.input field={@smtp_form[:from_name]} type="text" label="From Name" />
+          <div class="flex items-center gap-4">
+            <.input field={@smtp_form[:tls]} type="checkbox" label="Enable TLS" />
+          </div>
+          <:actions>
+            <.button phx-disable-with="Saving...">Save SMTP Settings</.button>
           </:actions>
         </.simple_form>
       </div>
@@ -144,6 +177,29 @@ defmodule SwitchTelemetryWeb.UserLive.Settings do
 
       {:error, changeset} ->
         {:noreply, assign(socket, password_form: to_form(changeset))}
+    end
+  end
+
+  def handle_event("validate_smtp", %{"smtp_setting" => smtp_params}, socket) do
+    changeset =
+      socket.assigns.smtp_settings
+      |> Settings.change_smtp_settings(smtp_params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, smtp_form: to_form(changeset))}
+  end
+
+  def handle_event("update_smtp", %{"smtp_setting" => smtp_params}, socket) do
+    case Settings.update_smtp_settings(smtp_params) do
+      {:ok, smtp_settings} ->
+        {:noreply,
+         socket
+         |> put_flash(:info, "SMTP settings updated successfully.")
+         |> assign(:smtp_settings, smtp_settings)
+         |> assign(:smtp_form, to_form(Settings.change_smtp_settings(smtp_settings)))}
+
+      {:error, changeset} ->
+        {:noreply, assign(socket, smtp_form: to_form(changeset))}
     end
   end
 end

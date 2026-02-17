@@ -80,9 +80,11 @@ defmodule SwitchTelemetry.Accounts do
   """
   @spec register_user(map()) :: {:ok, User.t()} | {:error, Ecto.Changeset.t()}
   def register_user(attrs) do
+    id_key = if is_map_key(attrs, "email"), do: "id", else: :id
+
     result =
       %User{}
-      |> User.registration_changeset(Map.put_new(attrs, :id, Ecto.UUID.generate()))
+      |> User.registration_changeset(Map.put_new(attrs, id_key, Ecto.UUID.generate()))
       |> Repo.insert()
 
     case result do

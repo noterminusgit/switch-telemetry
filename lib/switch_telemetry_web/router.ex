@@ -97,8 +97,7 @@ defmodule SwitchTelemetryWeb.Router do
       pipe_through [:browser, :require_authenticated_user, :require_admin]
 
       live "/users", UserLive.Index, :index
-      live "/admin_emails", AdminEmailLive.Index, :index
-      live "/admin_emails/new", AdminEmailLive.Index, :new
+      live "/users/new", UserLive.Index, :new
     end
   end
 
