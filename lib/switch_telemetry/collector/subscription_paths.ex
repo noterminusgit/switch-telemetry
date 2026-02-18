@@ -107,7 +107,8 @@ defmodule SwitchTelemetry.Collector.SubscriptionPaths do
   defp normalize_path_entry(_), do: nil
 
   defp paths_dir do
-    Application.app_dir(:switch_telemetry, "priv/gnmi_paths")
+    Application.get_env(:switch_telemetry, :gnmi_paths_dir) ||
+      Application.app_dir(:switch_telemetry, "priv/gnmi_paths")
   end
 
   defp sanitize_filename(name) do

@@ -1,7 +1,41 @@
 defmodule SwitchTelemetry.Collector.SubscriptionPathsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias SwitchTelemetry.Collector.SubscriptionPaths
+
+  setup do
+    # Use a tmp dir that mirrors the real priv/gnmi_paths structure,
+    # copying the static JSON files so list_paths/1 works normally.
+    tmp_dir = Path.join(System.tmp_dir!(), "gnmi_paths_test_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(tmp_dir)
+
+    src_dir = Application.app_dir(:switch_telemetry, "priv/gnmi_paths")
+
+    # Copy all top-level JSON files (platform files + _common.json)
+    src_dir
+    |> File.ls!()
+    |> Enum.filter(&String.ends_with?(&1, ".json"))
+    |> Enum.each(fn file ->
+      File.cp!(Path.join(src_dir, file), Path.join(tmp_dir, file))
+    end)
+
+    File.mkdir_p!(Path.join(tmp_dir, "device_overrides"))
+
+    prev_env = Application.get_env(:switch_telemetry, :gnmi_paths_dir)
+    Application.put_env(:switch_telemetry, :gnmi_paths_dir, tmp_dir)
+
+    on_exit(fn ->
+      if prev_env do
+        Application.put_env(:switch_telemetry, :gnmi_paths_dir, prev_env)
+      else
+        Application.delete_env(:switch_telemetry, :gnmi_paths_dir)
+      end
+
+      File.rm_rf!(tmp_dir)
+    end)
+
+    {:ok, tmp_dir: tmp_dir}
+  end
 
   describe "list_paths/1" do
     test "returns common + IOS-XR paths for cisco_iosxr" do

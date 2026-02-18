@@ -49,3 +49,5 @@ assets/.cache/
 *.pfx
 secrets/
 
+# Runtime gNMI device override paths (populated by Capabilities RPC)
+/priv/gnmi_paths/device_overrides/*.json

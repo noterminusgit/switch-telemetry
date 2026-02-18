@@ -1,5 +1,5 @@
 defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
-  use SwitchTelemetry.DataCase, async: true
+  use SwitchTelemetry.DataCase, async: false
 
   import Mox
 
@@ -9,15 +9,30 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
   setup :verify_on_exit!
 
   setup do
+    # Point paths_dir at a tmp dir so tests don't write into priv/
+    tmp_dir = Path.join(System.tmp_dir!(), "gnmi_caps_test_#{System.unique_integer([:positive])}")
+    File.mkdir_p!(Path.join(tmp_dir, "device_overrides"))
+
+    prev_paths = Application.get_env(:switch_telemetry, :gnmi_paths_dir)
+    Application.put_env(:switch_telemetry, :gnmi_paths_dir, tmp_dir)
+
     prev_env = Application.get_env(:switch_telemetry, :grpc_client)
     Application.put_env(:switch_telemetry, :grpc_client, MockGrpcClient)
 
     on_exit(fn ->
+      if prev_paths do
+        Application.put_env(:switch_telemetry, :gnmi_paths_dir, prev_paths)
+      else
+        Application.delete_env(:switch_telemetry, :gnmi_paths_dir)
+      end
+
       if prev_env do
         Application.put_env(:switch_telemetry, :grpc_client, prev_env)
       else
         Application.delete_env(:switch_telemetry, :grpc_client)
       end
+
+      File.rm_rf!(tmp_dir)
     end)
 
     {:ok, device} =
