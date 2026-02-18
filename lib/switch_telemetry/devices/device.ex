@@ -13,6 +13,7 @@ defmodule SwitchTelemetry.Devices.Device do
     field :platform, Ecto.Enum,
       values: [:cisco_iosxr, :cisco_iosxe, :cisco_nxos, :juniper_junos, :arista_eos, :nokia_sros]
 
+    field :model, :string
     field :transport, Ecto.Enum, values: [:gnmi, :netconf, :both]
     field :gnmi_port, :integer, default: 57400
     field :netconf_port, :integer, default: 830
@@ -35,7 +36,7 @@ defmodule SwitchTelemetry.Devices.Device do
   end
 
   @required_fields ~w(id hostname ip_address platform transport)a
-  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at secure_mode)a
+  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at secure_mode model)a
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(device, attrs) do

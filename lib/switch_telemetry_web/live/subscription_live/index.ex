@@ -75,6 +75,16 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
   end
 
   @impl true
+  def handle_info({:enumerate_result, component_id, result}, socket) do
+    send_update(SwitchTelemetryWeb.SubscriptionLive.FormComponent,
+      id: component_id,
+      enumerate_result: result
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
   @spec render(map()) :: Phoenix.LiveView.Rendered.t()
   def render(assigns) do
     ~H"""

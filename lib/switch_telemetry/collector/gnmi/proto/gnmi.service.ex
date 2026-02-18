@@ -3,6 +3,7 @@ defmodule Gnmi.GNMI.Service do
   use GRPC.Service, name: "gnmi.gNMI", protoc_gen_elixir_version: "0.14.0"
 
   rpc(:Subscribe, stream(Gnmi.SubscribeRequest), stream(Gnmi.SubscribeResponse))
+  rpc(:Capabilities, Gnmi.CapabilityRequest, Gnmi.CapabilityResponse)
 end
 
 defmodule Gnmi.GNMI.Stub do

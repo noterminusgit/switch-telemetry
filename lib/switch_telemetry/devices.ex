@@ -45,6 +45,12 @@ defmodule SwitchTelemetry.Devices do
     Repo.delete(device)
   end
 
+  @spec update_device_model(Device.t(), String.t()) ::
+          {:ok, Device.t()} | {:error, Ecto.Changeset.t()}
+  def update_device_model(%Device{} = device, model) do
+    update_device(device, %{model: model})
+  end
+
   @spec list_devices_for_collector(String.t()) :: [Device.t()]
   def list_devices_for_collector(collector_node) do
     from(d in Device,
