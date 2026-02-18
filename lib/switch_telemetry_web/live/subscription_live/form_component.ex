@@ -2,24 +2,32 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
   use SwitchTelemetryWeb, :live_component
 
   alias SwitchTelemetry.Collector
+  alias SwitchTelemetry.Collector.SubscriptionPaths
 
   @impl true
   @spec update(map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
   def update(assigns, socket) do
+    available_paths = SubscriptionPaths.list_paths(assigns.device.platform)
+    categories = available_paths |> Enum.map(& &1.category) |> Enum.uniq() |> Enum.sort()
+
     {:ok,
      socket
      |> assign(assigns)
+     |> assign(available_paths: available_paths, categories: categories, show_path_browser: false)
      |> assign_form_values()}
   end
 
   defp assign_form_values(socket) do
     subscription = socket.assigns.subscription
 
+    sample_interval_ns = subscription.sample_interval_ns || 30_000_000_000
+    sample_interval_seconds = div(sample_interval_ns, 1_000_000_000)
+
     assign(socket,
       form_values: %{
         "paths" => Enum.join(subscription.paths || [], "\n"),
         "mode" => (subscription.mode && to_string(subscription.mode)) || "stream",
-        "sample_interval_ns" => to_string(subscription.sample_interval_ns || 30_000_000_000),
+        "sample_interval_seconds" => to_string(sample_interval_seconds),
         "encoding" => (subscription.encoding && to_string(subscription.encoding)) || "proto",
         "enabled" => subscription.enabled != false
       }
@@ -58,6 +66,24 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
     end
   end
 
+  def handle_event("toggle_path_browser", _params, socket) do
+    {:noreply, assign(socket, show_path_browser: !socket.assigns.show_path_browser)}
+  end
+
+  def handle_event("add_path", %{"path" => path}, socket) do
+    current_paths = socket.assigns.form_values["paths"]
+
+    new_paths =
+      if current_paths == "" do
+        path
+      else
+        current_paths <> "\n" <> path
+      end
+
+    form_values = Map.put(socket.assigns.form_values, "paths", new_paths)
+    {:noreply, assign(socket, form_values: form_values)}
+  end
+
   defp prepare_params(params, socket) do
     paths =
       params
@@ -68,9 +94,16 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
 
     enabled = Map.get(params, "enabled", "false") == "true"
 
+    sample_interval_ns =
+      case Integer.parse(Map.get(params, "sample_interval_seconds", "30")) do
+        {seconds, _} when seconds > 0 -> seconds * 1_000_000_000
+        _ -> 30_000_000_000
+      end
+
     params
     |> Map.put("paths", paths)
     |> Map.put("enabled", enabled)
+    |> Map.put("sample_interval_ns", sample_interval_ns)
     |> Map.put("id", socket.assigns.subscription.id)
     |> Map.put("device_id", socket.assigns.device.id)
   end
@@ -100,6 +133,40 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
           required
           rows="6"
         />
+
+        <div class="mb-4">
+          <button
+            type="button"
+            phx-click="toggle_path_browser"
+            phx-target={@myself}
+            class="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+          >
+            <span :if={!@show_path_browser}>+ Browse Paths</span>
+            <span :if={@show_path_browser}>- Hide Path Browser</span>
+          </button>
+
+          <div :if={@show_path_browser} class="mt-3 border rounded-lg p-4 bg-gray-50 max-h-64 overflow-y-auto">
+            <div :for={category <- @categories} class="mb-3">
+              <h4 class="text-xs font-semibold text-gray-500 uppercase mb-1">{category}</h4>
+              <div :for={entry <- Enum.filter(@available_paths, &(&1.category == category))} class="flex items-center justify-between py-1">
+                <div>
+                  <code class="text-xs text-gray-700">{entry.path}</code>
+                  <span class="text-xs text-gray-400 ml-2">{entry.description}</span>
+                </div>
+                <button
+                  type="button"
+                  phx-click="add_path"
+                  phx-value-path={entry.path}
+                  phx-target={@myself}
+                  class="text-xs text-indigo-600 hover:text-indigo-800 ml-2 whitespace-nowrap"
+                >
+                  + Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
           <.input
             type="select"
@@ -126,15 +193,12 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.FormComponent do
         </div>
         <.input
           type="number"
-          name="subscription[sample_interval_ns]"
-          label="Sample Interval (nanoseconds)"
-          value={@form_values["sample_interval_ns"]}
-          min="1000000000"
-          step="1000000000"
+          name="subscription[sample_interval_seconds]"
+          label="Sample Interval (seconds)"
+          value={@form_values["sample_interval_seconds"]}
+          min="1"
+          step="1"
         />
-        <p class="text-xs text-gray-500 -mt-2 mb-4">
-          Common values: 10s = 10000000000, 30s = 30000000000, 60s = 60000000000
-        </p>
         <.input
           type="checkbox"
           name="subscription[enabled]"

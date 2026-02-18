@@ -6,7 +6,7 @@ defmodule SwitchTelemetry.Devices.Credential do
 
   @primary_key {:id, :string, autogenerate: false}
   @foreign_key_type :string
-  @derive {Inspect, except: [:password, :ssh_key, :tls_key]}
+  @derive {Inspect, except: [:password, :ssh_key, :tls_key, :ca_cert]}
   schema "credentials" do
     field :name, :string
     field :username, :string
@@ -14,6 +14,7 @@ defmodule SwitchTelemetry.Devices.Credential do
     field :ssh_key, SwitchTelemetry.Encrypted.Binary
     field :tls_cert, SwitchTelemetry.Encrypted.Binary
     field :tls_key, SwitchTelemetry.Encrypted.Binary
+    field :ca_cert, SwitchTelemetry.Encrypted.Binary
 
     has_many :devices, SwitchTelemetry.Devices.Device
 
@@ -21,7 +22,7 @@ defmodule SwitchTelemetry.Devices.Credential do
   end
 
   @required_fields ~w(id name username)a
-  @optional_fields ~w(password ssh_key tls_cert tls_key)a
+  @optional_fields ~w(password ssh_key tls_cert tls_key ca_cert)a
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(credential, attrs) do

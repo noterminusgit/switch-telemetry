@@ -1,0 +1,12 @@
+{
+  "platform": "cisco_iosxr",
+  "paths": [
+    {"path": "/Cisco-IOS-XR-infra-statsd-oper:infra-statistics/interfaces/interface/latest/generic-counters", "description": "IOS-XR native interface counters", "category": "interfaces"},
+    {"path": "/Cisco-IOS-XR-ipv4-bgp-oper:bgp/instances/instance/instance-active/default-vrf/neighbors/neighbor", "description": "IOS-XR BGP neighbor operational data", "category": "routing"},
+    {"path": "/Cisco-IOS-XR-wdsysmon-fd-oper:system-monitoring/cpu-utilization", "description": "IOS-XR CPU utilization", "category": "system"},
+    {"path": "/Cisco-IOS-XR-nto-misc-oper:memory-summary/nodes/node/summary", "description": "IOS-XR memory summary", "category": "system"},
+    {"path": "/Cisco-IOS-XR-envmon-oper:power-management/rack/producers/producer-nodes", "description": "IOS-XR power management", "category": "platform"},
+    {"path": "/Cisco-IOS-XR-mpls-te-oper:mpls-te/tunnels/summary", "description": "MPLS-TE tunnel summary", "category": "mpls"},
+    {"path": "/Cisco-IOS-XR-segment-routing-ms-oper:srms/policy/policy-ipv4/policy-ipv4-active", "description": "Segment Routing policy state", "category": "mpls"}
+  ]
+}

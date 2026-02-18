@@ -126,6 +126,64 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       assert html =~ "Paths (one per line)"
     end
 
+    test "new subscription form shows Sample Interval (seconds) label", %{conn: conn} do
+      device = create_device()
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
+      assert html =~ "Sample Interval (seconds)"
+      refute html =~ "Sample Interval (nanoseconds)"
+    end
+
+    test "new subscription form defaults to 30 seconds", %{conn: conn} do
+      device = create_device()
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
+      # Default sample_interval_ns is 30_000_000_000 ns = 30 seconds
+      assert html =~ ~s(value="30")
+    end
+
+    test "submitting 30 seconds stores 30_000_000_000 ns in DB", %{conn: conn} do
+      device = create_device()
+
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
+
+      view
+      |> form("form", %{
+        "subscription" => %{
+          "paths" => "/interfaces/interface/state/counters",
+          "mode" => "stream",
+          "encoding" => "proto",
+          "sample_interval_seconds" => "30"
+        }
+      })
+      |> render_submit()
+
+      flash = assert_redirect(view, ~p"/devices/#{device.id}/subscriptions")
+      assert flash["info"] == "Subscription saved"
+
+      [sub] = Collector.list_subscriptions_for_device(device.id)
+      assert sub.sample_interval_ns == 30_000_000_000
+    end
+
+    test "submitting 10 seconds stores 10_000_000_000 ns in DB", %{conn: conn} do
+      device = create_device()
+
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
+
+      view
+      |> form("form", %{
+        "subscription" => %{
+          "paths" => "/interfaces/interface/state/counters",
+          "mode" => "stream",
+          "encoding" => "proto",
+          "sample_interval_seconds" => "10"
+        }
+      })
+      |> render_submit()
+
+      assert_redirect(view, ~p"/devices/#{device.id}/subscriptions")
+      [sub] = Collector.list_subscriptions_for_device(device.id)
+      assert sub.sample_interval_ns == 10_000_000_000
+    end
+
     test "creates a subscription via the form", %{conn: conn} do
       device = create_device()
 
@@ -137,7 +195,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           "paths" => "/interfaces/interface/state/counters\n/system/state/hostname",
           "mode" => "stream",
           "encoding" => "proto",
-          "sample_interval_ns" => "30000000000"
+          "sample_interval_seconds" => "30"
         }
       })
       |> render_submit()
@@ -156,6 +214,18 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
         live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       assert html =~ "Edit Subscription"
+    end
+
+    test "edit form displays interval in seconds", %{conn: conn} do
+      device = create_device()
+      sub = create_subscription(device, %{"sample_interval_ns" => 10_000_000_000})
+
+      {:ok, _view, html} =
+        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+
+      # 10_000_000_000 ns = 10 seconds
+      assert html =~ ~s(value="10")
+      assert html =~ "Sample Interval (seconds)"
     end
   end
 end

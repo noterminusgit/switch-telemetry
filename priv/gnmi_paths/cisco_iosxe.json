@@ -1,0 +1,12 @@
+{
+  "platform": "cisco_iosxe",
+  "paths": [
+    {"path": "/Cisco-IOS-XE-interfaces-oper:interfaces/interface/statistics", "description": "IOS-XE native interface statistics", "category": "interfaces"},
+    {"path": "/Cisco-IOS-XE-bgp-oper:bgp-state-data/neighbors/neighbor", "description": "IOS-XE BGP neighbor state data", "category": "routing"},
+    {"path": "/Cisco-IOS-XE-process-cpu-oper:cpu-usage/cpu-utilization", "description": "IOS-XE CPU utilization", "category": "system"},
+    {"path": "/Cisco-IOS-XE-memory-oper:memory-statistics/memory-statistic", "description": "IOS-XE memory statistics", "category": "system"},
+    {"path": "/Cisco-IOS-XE-environment-oper:environment-sensors/environment-sensor", "description": "IOS-XE environment sensors (temp, voltage)", "category": "platform"},
+    {"path": "/Cisco-IOS-XE-platform-software-oper:cisco-platform-software/control-processes", "description": "IOS-XE platform software processes", "category": "platform"},
+    {"path": "/Cisco-IOS-XE-wireless-client-oper:client-oper-data/common-oper-data", "description": "IOS-XE wireless client data (WLC)", "category": "wireless"}
+  ]
+}

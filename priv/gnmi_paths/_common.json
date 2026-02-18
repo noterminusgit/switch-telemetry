@@ -1,0 +1,24 @@
+{
+  "platform": "_common",
+  "paths": [
+    {"path": "/interfaces/interface/state/counters", "description": "Interface traffic counters (in/out octets, packets, errors)", "category": "interfaces"},
+    {"path": "/interfaces/interface/state/oper-status", "description": "Interface operational status (UP/DOWN)", "category": "interfaces"},
+    {"path": "/interfaces/interface/state/admin-status", "description": "Interface administrative status", "category": "interfaces"},
+    {"path": "/interfaces/interface/state/mtu", "description": "Interface MTU", "category": "interfaces"},
+    {"path": "/interfaces/interface/state/description", "description": "Interface description", "category": "interfaces"},
+    {"path": "/interfaces/interface/subinterfaces/subinterface/state/counters", "description": "Subinterface traffic counters", "category": "interfaces"},
+    {"path": "/system/state/hostname", "description": "System hostname", "category": "system"},
+    {"path": "/system/state/domain-name", "description": "System domain name", "category": "system"},
+    {"path": "/system/state/current-datetime", "description": "System current date/time", "category": "system"},
+    {"path": "/system/state/boot-time", "description": "System boot time", "category": "system"},
+    {"path": "/system/memory/state", "description": "System memory utilization", "category": "system"},
+    {"path": "/system/cpus/cpu/state", "description": "CPU utilization per core", "category": "system"},
+    {"path": "/network-instances/network-instance/protocols/protocol/bgp/neighbors/neighbor/state", "description": "BGP neighbor state and statistics", "category": "routing"},
+    {"path": "/network-instances/network-instance/protocols/protocol/bgp/global/state", "description": "BGP global state", "category": "routing"},
+    {"path": "/network-instances/network-instance/protocols/protocol/ospfv2/areas/area/interfaces/interface/state", "description": "OSPF interface state", "category": "routing"},
+    {"path": "/components/component/state", "description": "Hardware component state (fans, PSU, temp sensors)", "category": "platform"},
+    {"path": "/components/component/state/temperature", "description": "Component temperature readings", "category": "platform"},
+    {"path": "/lldp/interfaces/interface/neighbors/neighbor/state", "description": "LLDP neighbor information", "category": "lldp"},
+    {"path": "/qos/interfaces/interface/output/queues/queue/state", "description": "QoS output queue statistics", "category": "qos"}
+  ]
+}

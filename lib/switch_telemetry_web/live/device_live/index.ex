@@ -106,6 +106,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Index do
             label="Platform"
             options={[
               {"Cisco IOS-XR", "cisco_iosxr"},
+              {"Cisco IOS-XE", "cisco_iosxe"},
               {"Cisco NX-OS", "cisco_nxos"},
               {"Juniper JunOS", "juniper_junos"},
               {"Arista EOS", "arista_eos"},

@@ -1,0 +1,12 @@
+{
+  "platform": "arista_eos",
+  "paths": [
+    {"path": "/Sysdb/interface/counter/eth/lag/intfCounterDir", "description": "EOS interface counters (Sysdb native)", "category": "interfaces"},
+    {"path": "/Sysdb/bridging/macUnicastTable", "description": "EOS MAC address table", "category": "switching"},
+    {"path": "/Sysdb/environment/temperature/status", "description": "EOS temperature sensor status", "category": "platform"},
+    {"path": "/Sysdb/environment/power/status", "description": "EOS power supply status", "category": "platform"},
+    {"path": "/Sysdb/environment/cooling/status", "description": "EOS fan/cooling status", "category": "platform"},
+    {"path": "/Sysdb/routing/bgp/export", "description": "EOS BGP export routes", "category": "routing"},
+    {"path": "/Sysdb/cell/1/agent", "description": "EOS hardware agent status", "category": "platform"}
+  ]
+}

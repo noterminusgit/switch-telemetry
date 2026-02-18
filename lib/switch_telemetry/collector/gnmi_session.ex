@@ -14,12 +14,12 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   require Logger
 
   alias SwitchTelemetry.{Devices, Metrics}
-  alias SwitchTelemetry.Collector.Subscription
+  alias SwitchTelemetry.Collector.{Subscription, TlsHelper}
 
   @max_retry_delay :timer.minutes(5)
   @base_retry_delay :timer.seconds(5)
 
-  defstruct [:device, :channel, :stream, :task_ref, :retry_count]
+  defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential]
 
   # --- Public API ---
 
@@ -52,8 +52,10 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   @impl true
   def handle_info(:connect, state) do
     target = "#{state.device.ip_address}:#{state.device.gnmi_port}"
+    credential = load_credential(state.device)
+    grpc_opts = TlsHelper.build_grpc_opts(credential)
 
-    case grpc_client().connect(target, []) do
+    case grpc_client().connect(target, grpc_opts) do
       {:ok, channel} ->
         Logger.info("gNMI connected to #{state.device.hostname} at #{target}")
 
@@ -63,7 +65,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         })
 
         send(self(), :subscribe)
-        {:noreply, %{state | channel: channel, retry_count: 0}}
+        {:noreply, %{state | channel: channel, retry_count: 0, credential: credential}}
 
       {:error, reason} ->
         Logger.warning("gNMI connection to #{state.device.hostname} failed: #{inspect(reason)}")
@@ -271,6 +273,18 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       )
 
     Process.send_after(self(), :connect, delay)
+  end
+
+  defp load_credential(device) do
+    if device.credential_id do
+      try do
+        Devices.get_credential!(device.credential_id)
+      rescue
+        Ecto.NoResultsError -> nil
+      end
+    else
+      nil
+    end
   end
 
   defp grpc_client do

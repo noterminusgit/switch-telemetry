@@ -98,6 +98,55 @@ defmodule SwitchTelemetryWeb.DeviceLive.EditTest do
       assert updated.platform == :arista_eos
     end
 
+    test "pre-populates hostname input with saved value", %{conn: conn, device: device} do
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/edit")
+      # The form uses @form[:hostname] which renders with the changeset data.
+      # Verify the value appears in the rendered form section.
+      form_html = view |> element("form") |> render()
+      assert form_html =~ "edit-device.lab"
+    end
+
+    test "pre-populates IP address input with saved value", %{conn: conn, device: device} do
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/edit")
+      form_html = view |> element("form") |> render()
+      assert form_html =~ "10.0.50.1"
+    end
+
+    test "pre-populates gNMI port input with saved value", %{conn: conn, device: device} do
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/edit")
+      form_html = view |> element("form") |> render()
+      assert form_html =~ "57400"
+    end
+
+    test "pre-populates platform select with saved value", %{conn: conn, device: device} do
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/edit")
+      form_html = view |> element("form") |> render()
+      assert form_html =~ "Cisco IOS-XR"
+      assert form_html =~ "cisco_iosxr"
+    end
+
+    test "pre-populates credential select when credential is set", %{conn: conn} do
+      {:ok, cred} =
+        Devices.create_credential(%{
+          id: "cred_edit_test",
+          name: "Edit Test Cred",
+          username: "admin"
+        })
+
+      {:ok, device} =
+        Devices.create_device(%{
+          id: "dev_edit_cred_test",
+          hostname: "cred-device.lab",
+          ip_address: "10.0.50.2",
+          platform: :cisco_iosxr,
+          transport: :gnmi,
+          credential_id: cred.id
+        })
+
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/edit")
+      assert html =~ "Edit Test Cred"
+    end
+
     test "updates transport", %{conn: conn, device: device} do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/edit")
 

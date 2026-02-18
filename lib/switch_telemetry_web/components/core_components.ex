@@ -396,7 +396,7 @@ defmodule SwitchTelemetryWeb.CoreComponents do
     |> assign(field: nil, id: assigns.id || field.id)
     |> assign(:errors, Enum.map(field.errors, &translate_error(&1)))
     |> assign_new(:name, fn -> field.name end)
-    |> assign_new(:value, fn -> field.value end)
+    |> assign(:value, field.value)
     |> input()
   end
 

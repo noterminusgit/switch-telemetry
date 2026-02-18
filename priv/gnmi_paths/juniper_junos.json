@@ -1,0 +1,12 @@
+{
+  "platform": "juniper_junos",
+  "paths": [
+    {"path": "/junos/system/linecard/interface/logical/usage", "description": "JunOS interface logical usage counters", "category": "interfaces"},
+    {"path": "/junos/system/linecard/interface/physical", "description": "JunOS physical interface counters", "category": "interfaces"},
+    {"path": "/junos/routing-engine/cpu", "description": "JunOS routing engine CPU usage", "category": "system"},
+    {"path": "/junos/routing-engine/memory", "description": "JunOS routing engine memory usage", "category": "system"},
+    {"path": "/junos/system/linecard/environment/temperature", "description": "JunOS linecard temperature", "category": "platform"},
+    {"path": "/junos/rpd/bgp/rib/ipv4-unicast", "description": "JunOS BGP IPv4 unicast RIB", "category": "routing"},
+    {"path": "/junos/rpd/bgp/peer-state", "description": "JunOS BGP peer state", "category": "routing"}
+  ]
+}

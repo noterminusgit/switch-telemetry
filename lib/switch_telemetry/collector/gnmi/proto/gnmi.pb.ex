@@ -143,3 +143,26 @@ defmodule Gnmi.SubscribeResponse do
   field :update, 1, type: Gnmi.Notification, oneof: 0
   field :sync_response, 3, type: :bool, oneof: 0
 end
+
+defmodule Gnmi.ModelData do
+  @moduledoc false
+  use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
+
+  field :name, 1, type: :string
+  field :organization, 2, type: :string
+  field :version, 3, type: :string
+end
+
+defmodule Gnmi.CapabilityRequest do
+  @moduledoc false
+  use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
+end
+
+defmodule Gnmi.CapabilityResponse do
+  @moduledoc false
+  use Protobuf, syntax: :proto3, protoc_gen_elixir_version: "0.14.0"
+
+  field :supported_models, 1, repeated: true, type: Gnmi.ModelData
+  field :supported_encodings, 2, repeated: true, type: Gnmi.Encoding, enum: true
+  field :gNMI_version, 3, type: :string
+end

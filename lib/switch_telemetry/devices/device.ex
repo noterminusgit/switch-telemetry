@@ -11,11 +11,12 @@ defmodule SwitchTelemetry.Devices.Device do
     field :ip_address, :string
 
     field :platform, Ecto.Enum,
-      values: [:cisco_iosxr, :cisco_nxos, :juniper_junos, :arista_eos, :nokia_sros]
+      values: [:cisco_iosxr, :cisco_iosxe, :cisco_nxos, :juniper_junos, :arista_eos, :nokia_sros]
 
     field :transport, Ecto.Enum, values: [:gnmi, :netconf, :both]
     field :gnmi_port, :integer, default: 57400
     field :netconf_port, :integer, default: 830
+    field :secure_mode, :boolean, default: false
     field :tags, :map, default: %{}
     field :collection_interval_ms, :integer, default: 30_000
 
@@ -34,7 +35,7 @@ defmodule SwitchTelemetry.Devices.Device do
   end
 
   @required_fields ~w(id hostname ip_address platform transport)a
-  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at)a
+  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at secure_mode)a
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(device, attrs) do
@@ -49,6 +50,21 @@ defmodule SwitchTelemetry.Devices.Device do
     |> unique_constraint(:hostname)
     |> unique_constraint(:ip_address)
     |> foreign_key_constraint(:credential_id)
+    |> validate_secure_mode()
+  end
+
+  @spec validate_secure_mode(Ecto.Changeset.t()) :: Ecto.Changeset.t()
+  def validate_secure_mode(changeset) do
+    secure_mode = get_field(changeset, :secure_mode)
+    transport = get_field(changeset, :transport)
+    credential_id = get_field(changeset, :credential_id)
+
+    if secure_mode == true and transport in [:gnmi, :both] and
+         (is_nil(credential_id) or credential_id == "") do
+      add_error(changeset, :credential_id, "is required when secure mode is enabled for gNMI")
+    else
+      changeset
+    end
   end
 
   defp validate_ip_address(changeset) do

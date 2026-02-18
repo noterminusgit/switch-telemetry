@@ -1,0 +1,13 @@
+{
+  "platform": "nokia_sros",
+  "paths": [
+    {"path": "/state/port/ethernet/statistics", "description": "SR OS port Ethernet statistics", "category": "interfaces"},
+    {"path": "/state/router/interface/statistics", "description": "SR OS router interface statistics", "category": "interfaces"},
+    {"path": "/state/system/cpu", "description": "SR OS system CPU utilization", "category": "system"},
+    {"path": "/state/system/memory-pools", "description": "SR OS system memory pools", "category": "system"},
+    {"path": "/state/chassis/hardware-data/temperature", "description": "SR OS chassis temperature", "category": "platform"},
+    {"path": "/state/router/bgp/neighbor", "description": "SR OS BGP neighbor state", "category": "routing"},
+    {"path": "/state/router/mpls/lsp", "description": "SR OS MPLS LSP state", "category": "mpls"},
+    {"path": "/state/service/vpls/sap/statistics", "description": "SR OS VPLS SAP statistics", "category": "services"}
+  ]
+}

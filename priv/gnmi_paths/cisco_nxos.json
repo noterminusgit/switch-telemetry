@@ -1,0 +1,11 @@
+{
+  "platform": "cisco_nxos",
+  "paths": [
+    {"path": "/System/intf-items/phys-items/PhysIf-list/dbgIfHCIn-items", "description": "NX-OS physical interface high-capacity input counters", "category": "interfaces"},
+    {"path": "/System/bgp-items/inst-items/dom-items/Dom-list/peer-items/Peer-list", "description": "NX-OS BGP peer state", "category": "routing"},
+    {"path": "/System/procsys-items/syscpusummary-items", "description": "NX-OS system CPU summary", "category": "system"},
+    {"path": "/System/procsys-items/sysmem-items", "description": "NX-OS system memory", "category": "system"},
+    {"path": "/System/ch-items/fcslot-items/FCSlot-list/fc-items/FCard-list/sensor-items", "description": "NX-OS chassis sensor readings", "category": "platform"},
+    {"path": "/System/vpc-items/inst-items", "description": "NX-OS vPC state", "category": "vpc"}
+  ]
+}

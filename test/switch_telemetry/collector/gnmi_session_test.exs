@@ -670,7 +670,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
 
   describe "handle_info :connect callback" do
     setup do
-      device = %{id: "dev1", hostname: "switch1", ip_address: "10.0.0.1", gnmi_port: 6030}
+      device = %{id: "dev1", hostname: "switch1", ip_address: "10.0.0.1", gnmi_port: 6030, credential_id: nil}
       state = %GnmiSession{device: device, retry_count: 0}
       {:ok, state: state, device: device}
     end
@@ -1188,6 +1188,89 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
   # ============================================================
   # New tests targeting untested branches for coverage improvement
   # ============================================================
+
+  describe "handle_info :connect with TLS credential" do
+    setup do
+      {:ok, cred} =
+        SwitchTelemetry.Devices.create_credential(%{
+          id: "cred-tls-#{System.unique_integer([:positive])}",
+          name: "TLS Cred #{System.unique_integer([:positive])}",
+          username: "admin",
+          password: "secret"
+        })
+
+      {:ok, device} =
+        SwitchTelemetry.Devices.create_device(%{
+          id: "gnmi-tls-#{System.unique_integer([:positive])}",
+          hostname: "sw-gnmi-tls-#{System.unique_integer([:positive])}",
+          ip_address: "10.6.#{:rand.uniform(254)}.#{:rand.uniform(254)}",
+          platform: :cisco_iosxr,
+          transport: :gnmi,
+          gnmi_port: 6030,
+          credential_id: cred.id
+        })
+
+      state = %GnmiSession{device: device, retry_count: 0}
+
+      prev_env = Application.get_env(:switch_telemetry, :grpc_client)
+      Application.put_env(:switch_telemetry, :grpc_client, MockGrpcClient)
+
+      on_exit(fn ->
+        if prev_env do
+          Application.put_env(:switch_telemetry, :grpc_client, prev_env)
+        else
+          Application.delete_env(:switch_telemetry, :grpc_client)
+        end
+      end)
+
+      {:ok, state: state, device: device, credential: cred}
+    end
+
+    test "connection with credential passes opts to mock", %{state: state} do
+      test_pid = self()
+
+      MockGrpcClient
+      |> expect(:connect, fn target, opts ->
+        send(test_pid, {:connect_opts, opts})
+        assert target == "#{state.device.ip_address}:#{state.device.gnmi_port}"
+        {:ok, :fake_channel}
+      end)
+
+      {:noreply, new_state} = GnmiSession.handle_info(:connect, state)
+      assert new_state.channel == :fake_channel
+      assert new_state.credential != nil
+
+      assert_received {:connect_opts, _opts}
+      assert_received :subscribe
+    end
+
+    test "connection without credential passes empty opts", %{state: state, device: device} do
+      # Create a device without a credential
+      {:ok, no_cred_device} =
+        SwitchTelemetry.Devices.create_device(%{
+          id: "gnmi-nocred-#{System.unique_integer([:positive])}",
+          hostname: "sw-gnmi-nocred-#{System.unique_integer([:positive])}",
+          ip_address: "10.7.#{:rand.uniform(254)}.#{:rand.uniform(254)}",
+          platform: :cisco_iosxr,
+          transport: :gnmi,
+          gnmi_port: 6030
+        })
+
+      state_no_cred = %GnmiSession{device: no_cred_device, retry_count: 0}
+      test_pid = self()
+
+      MockGrpcClient
+      |> expect(:connect, fn _target, opts ->
+        send(test_pid, {:connect_opts, opts})
+        {:ok, :fake_channel}
+      end)
+
+      {:noreply, _} = GnmiSession.handle_info(:connect, state_no_cred)
+
+      assert_received {:connect_opts, opts}
+      assert opts == []
+    end
+  end
 
   describe "handle_info :connect with real Device struct" do
     setup do

@@ -99,6 +99,14 @@ defmodule SwitchTelemetryWeb.CredentialLive.Edit do
                   rows="4"
                   placeholder="Paste TLS private key (PEM format)"
                 />
+
+                <.input
+                  field={@changeset[:ca_cert]}
+                  type="textarea"
+                  label="CA Certificate"
+                  rows="4"
+                  placeholder="Paste CA certificate (PEM format) for server verification"
+                />
               </div>
             </div>
           </div>

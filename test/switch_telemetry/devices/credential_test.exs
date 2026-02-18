@@ -39,5 +39,23 @@ defmodule SwitchTelemetry.Devices.CredentialTest do
       changeset = Credential.changeset(%Credential{}, attrs)
       assert changeset.valid?
     end
+
+    test "ca_cert is optional" do
+      attrs = Map.put(@valid_attrs, :ca_cert, "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
+      changeset = Credential.changeset(%Credential{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "accepts all TLS fields together" do
+      attrs =
+        Map.merge(@valid_attrs, %{
+          tls_cert: "-----BEGIN CERTIFICATE-----\ncert\n-----END CERTIFICATE-----",
+          tls_key: "-----BEGIN PRIVATE KEY-----\nkey\n-----END PRIVATE KEY-----",
+          ca_cert: "-----BEGIN CERTIFICATE-----\nca\n-----END CERTIFICATE-----"
+        })
+
+      changeset = Credential.changeset(%Credential{}, attrs)
+      assert changeset.valid?
+    end
   end
 end

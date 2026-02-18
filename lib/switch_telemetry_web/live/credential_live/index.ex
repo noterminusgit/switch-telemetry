@@ -105,6 +105,7 @@ defmodule SwitchTelemetryWeb.CredentialLive.Index do
           <.input field={@changeset[:ssh_key]} type="textarea" label="SSH Private Key" rows="4" />
           <.input field={@changeset[:tls_cert]} type="textarea" label="TLS Certificate" rows="4" />
           <.input field={@changeset[:tls_key]} type="textarea" label="TLS Private Key" rows="4" />
+          <.input field={@changeset[:ca_cert]} type="textarea" label="CA Certificate" rows="4" />
           <:actions>
             <.button type="submit" phx-disable-with="Creating...">Create Credential</.button>
             <.link navigate={~p"/credentials"} class="ml-4 text-gray-600">Cancel</.link>

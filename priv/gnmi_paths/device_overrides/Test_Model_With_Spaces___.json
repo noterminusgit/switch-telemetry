@@ -1,0 +1,10 @@
+{
+  "device_model": "Test/Model With Spaces!@#",
+  "paths": [
+    {
+      "category": "test",
+      "description": "Sanitized model",
+      "path": "/test/sanitized"
+    }
+  ]
+}

@@ -83,6 +83,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
                 label="Platform"
                 options={[
                   {"Cisco IOS-XR", "cisco_iosxr"},
+                  {"Cisco IOS-XE", "cisco_iosxe"},
                   {"Cisco NX-OS", "cisco_nxos"},
                   {"Juniper JunOS", "juniper_junos"},
                   {"Arista EOS", "arista_eos"},
@@ -121,7 +122,12 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
               type="select"
               label="Credential"
               options={[{"None", ""} | @credentials]}
-              prompt="Select a credential"
+            />
+
+            <.input
+              field={@form[:secure_mode]}
+              type="checkbox"
+              label="Secure Mode (require credentials for gNMI)"
             />
 
             <.input

@@ -1,0 +1,10 @@
+{
+  "device_model": "test-save-291",
+  "paths": [
+    {
+      "category": "test",
+      "description": "Saved path",
+      "path": "/test/saved/path"
+    }
+  ]
+}
