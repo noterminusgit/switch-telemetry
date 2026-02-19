@@ -32,7 +32,8 @@ defmodule SwitchTelemetry.Application do
       {Horde.Registry, name: SwitchTelemetry.DistributedRegistry, keys: :unique, members: :auto},
       {Horde.DynamicSupervisor,
        name: SwitchTelemetry.DistributedSupervisor, strategy: :one_for_one, members: :auto},
-      {Finch, name: SwitchTelemetry.Finch}
+      {Finch, name: SwitchTelemetry.Finch},
+      {GRPC.Client.Supervisor, []}
     ]
   end
 
