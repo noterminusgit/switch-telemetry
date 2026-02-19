@@ -46,8 +46,7 @@ defmodule SwitchTelemetry.Settings.SecuritySettingTest do
     test "updates only specified fields" do
       Settings.get_security_settings()
 
-      {:ok, updated} =
-        Settings.update_security_settings(%{require_secure_gnmi: true})
+      {:ok, updated} = Settings.update_security_settings(%{require_secure_gnmi: true})
 
       assert updated.require_secure_gnmi == true
       assert updated.require_credentials == false

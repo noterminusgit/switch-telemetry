@@ -418,8 +418,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       device = create_device()
       sub = create_subscription(device)
 
-      {:ok, _view, html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       assert html =~ "Edit Subscription"
     end
@@ -428,8 +427,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       device = create_device()
       sub = create_subscription(device, %{"sample_interval_ns" => 10_000_000_000})
 
-      {:ok, _view, html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       # 10_000_000_000 ns = 10 seconds
       assert html =~ ~s(value="10")
@@ -444,8 +442,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           "paths" => ["/interfaces/interface/state/counters", "/system/state/hostname"]
         })
 
-      {:ok, _view, html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       assert html =~ "2 selected"
     end
@@ -458,8 +455,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           "paths" => ["/interfaces/interface/state/counters"]
         })
 
-      {:ok, view, _html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       # Add another path
       view
@@ -497,8 +493,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           ]
         })
 
-      {:ok, _view, html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       assert html =~ "2 selected"
       assert html =~ "/custom/vendor/specific/path"
@@ -516,8 +511,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           "paths" => ["/interfaces/interface/state/counters"]
         })
 
-      {:ok, view, _html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       # Send enumerate error result - component ID is the subscription ID
       send(view.pid, {:enumerate_result, sub.id, {:error, :connection_refused}})
@@ -537,8 +531,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
           "paths" => ["/interfaces/interface/state/counters"]
         })
 
-      {:ok, view, _html} =
-        live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
+      {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       # Send enumerate success result
       send(

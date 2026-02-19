@@ -179,8 +179,7 @@ defmodule SwitchTelemetry.Collector.NetconfSessionLifecycleTest do
     end
 
     test "success without password in credential" do
-      {device, _credential} =
-        create_device_with_credential(%{}, %{password: nil})
+      {device, _credential} = create_device_with_credential(%{}, %{password: nil})
 
       state = make_state(device)
       test_pid = self()
@@ -447,8 +446,7 @@ defmodule SwitchTelemetry.Collector.NetconfSessionLifecycleTest do
       device = create_device()
       {:ok, timer_ref} = :timer.send_interval(600_000, :dummy)
 
-      state =
-        make_state(device, ssh_ref: self(), channel_id: 0, timer_ref: timer_ref)
+      state = make_state(device, ssh_ref: self(), channel_id: 0, timer_ref: timer_ref)
 
       MockSshClient
       |> expect(:close, fn _ref -> :ok end)

@@ -420,19 +420,16 @@ defmodule SwitchTelemetry.DevicesTest do
     end
 
     test "returns {name, id} tuples" do
-      {:ok, cred} =
-        Devices.create_credential(valid_credential_attrs(%{name: "Select Test Cred"}))
+      {:ok, cred} = Devices.create_credential(valid_credential_attrs(%{name: "Select Test Cred"}))
 
       result = Devices.list_credentials_for_select()
       assert {"Select Test Cred", cred.id} in result
     end
 
     test "returns credentials sorted by name" do
-      {:ok, _} =
-        Devices.create_credential(valid_credential_attrs(%{name: "Bravo Cred"}))
+      {:ok, _} = Devices.create_credential(valid_credential_attrs(%{name: "Bravo Cred"}))
 
-      {:ok, _} =
-        Devices.create_credential(valid_credential_attrs(%{name: "Alpha Cred"}))
+      {:ok, _} = Devices.create_credential(valid_credential_attrs(%{name: "Alpha Cred"}))
 
       result = Devices.list_credentials_for_select()
       names = Enum.map(result, fn {name, _id} -> name end)

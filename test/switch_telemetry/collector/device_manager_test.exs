@@ -563,8 +563,7 @@ defmodule SwitchTelemetry.Collector.DeviceManagerTest do
     test "returns single device ID" do
       state = %{sessions: %{"only-one" => %{gnmi: self()}}}
 
-      {:reply, ids, _} =
-        DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
+      {:reply, ids, _} = DeviceManager.handle_call(:list_sessions, {self(), make_ref()}, state)
 
       assert ids == ["only-one"]
     end

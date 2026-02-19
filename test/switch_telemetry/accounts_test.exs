@@ -136,8 +136,7 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "validates email format", %{user: user} do
-      {:error, changeset} =
-        Accounts.apply_user_email(user, "valid_password123", %{email: "nope"})
+      {:error, changeset} = Accounts.apply_user_email(user, "valid_password123", %{email: "nope"})
 
       assert %{email: ["must have the @ sign and no spaces"]} = errors_on(changeset)
     end
@@ -236,8 +235,7 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "returns nil for expired token", %{token: token} do
-      {1, nil} =
-        Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
+      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
 
       assert Accounts.get_user_by_session_token(token) == nil
     end
@@ -291,8 +289,7 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "returns nil with expired token", %{token: token} do
-      {1, nil} =
-        Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
+      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
 
       assert Accounts.get_user_by_reset_password_token(token) == nil
     end
@@ -348,8 +345,7 @@ defmodule SwitchTelemetry.AccountsTest do
     end
 
     test "returns error if token is expired", %{token: token} do
-      {1, nil} =
-        Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
+      {1, nil} = Repo.update_all(UserToken, set: [inserted_at: ~U[2020-01-01 00:00:00.000000Z]])
 
       assert Accounts.confirm_user(token) == :error
     end
@@ -546,8 +542,7 @@ defmodule SwitchTelemetry.AccountsTest do
     test "deliver_magic_link_instructions/2 creates token and sends email" do
       user = create_user()
 
-      assert {:ok, email} =
-               Accounts.deliver_magic_link_instructions(user, &"/magic/#{&1}")
+      assert {:ok, email} = Accounts.deliver_magic_link_instructions(user, &"/magic/#{&1}")
 
       assert email.text_body =~ "sign in"
     end

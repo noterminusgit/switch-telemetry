@@ -92,8 +92,7 @@ defmodule SwitchTelemetry.Collector.DeviceAssignmentTest do
     test "handle_info :nodedown rebuilds ring and returns updated state" do
       state = %{ring: HashRing.new()}
 
-      {:noreply, new_state} =
-        DeviceAssignment.handle_info({:nodedown, :old_node@host, []}, state)
+      {:noreply, new_state} = DeviceAssignment.handle_info({:nodedown, :old_node@host, []}, state)
 
       assert %{ring: _} = new_state
     end
@@ -125,8 +124,7 @@ defmodule SwitchTelemetry.Collector.DeviceAssignmentTest do
     test "nodeup and nodedown both preserve ring key in state" do
       state = %{ring: HashRing.new()}
 
-      {:noreply, state_after_up} =
-        DeviceAssignment.handle_info({:nodeup, :x@host, []}, state)
+      {:noreply, state_after_up} = DeviceAssignment.handle_info({:nodeup, :x@host, []}, state)
 
       assert Map.has_key?(state_after_up, :ring)
 
@@ -450,11 +448,9 @@ defmodule SwitchTelemetry.Collector.DeviceAssignmentTest do
         |> Enum.reduce(HashRing.new(), &HashRing.add_node(&2, &1))
 
       # Check that at least some keys moved
-      results_before =
-        for i <- 1..50, do: HashRing.key_to_node(ring_before, "dev-#{i}")
+      results_before = for i <- 1..50, do: HashRing.key_to_node(ring_before, "dev-#{i}")
 
-      results_after =
-        for i <- 1..50, do: HashRing.key_to_node(ring_after, "dev-#{i}")
+      results_after = for i <- 1..50, do: HashRing.key_to_node(ring_after, "dev-#{i}")
 
       # Some should remain the same (consistent hashing)
       same_count = Enum.count(Enum.zip(results_before, results_after), fn {a, b} -> a == b end)

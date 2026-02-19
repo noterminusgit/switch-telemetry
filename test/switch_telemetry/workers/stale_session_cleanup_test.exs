@@ -32,14 +32,12 @@ defmodule SwitchTelemetry.Workers.StaleSessionCleanupTest do
       # Register a process on the current node in the Horde registry
       test_key = {:device_session, Ecto.UUID.generate()}
 
-      {:ok, _pid} =
-        Horde.Registry.register(SwitchTelemetry.DistributedRegistry, test_key, :test)
+      {:ok, _pid} = Horde.Registry.register(SwitchTelemetry.DistributedRegistry, test_key, :test)
 
       assert :ok == StaleSessionCleanup.perform(%Oban.Job{})
 
       # The session should still be registered since it's on the current (alive) node
-      result =
-        Horde.Registry.lookup(SwitchTelemetry.DistributedRegistry, test_key)
+      result = Horde.Registry.lookup(SwitchTelemetry.DistributedRegistry, test_key)
 
       assert length(result) > 0
 

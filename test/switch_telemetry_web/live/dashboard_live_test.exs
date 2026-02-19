@@ -18,8 +18,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "renders dashboard cards when dashboards exist", %{conn: conn} do
-      {:ok, _dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_test1", name: "Test Dashboard"})
+      {:ok, _dashboard} = Dashboards.create_dashboard(%{id: "dash_test1", name: "Test Dashboard"})
 
       {:ok, _view, html} = live(conn, ~p"/dashboards")
       assert html =~ "Test Dashboard"
@@ -31,8 +30,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "deletes a dashboard", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_del", name: "To Delete"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_del", name: "To Delete"})
 
       {:ok, view, _html} = live(conn, ~p"/dashboards")
       assert render(view) =~ "To Delete"
@@ -140,8 +138,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "shows empty widget state", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_show2", name: "Empty Dashboard"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_show2", name: "Empty Dashboard"})
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "No widgets configured"
@@ -171,8 +168,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "displays widget titles in show view", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_wgt_show", name: "Widget Show"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_wgt_show", name: "Widget Show"})
 
       {:ok, _} =
         Dashboards.add_widget(dashboard, %{
@@ -390,8 +386,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
 
   describe "Show - PubSub and handle_info" do
     test "receives widget_saved message and updates dashboard", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_ws", name: "Widget Save Test"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_ws", name: "Widget Save Test"})
 
       {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
 
@@ -407,8 +402,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "receives time_range_changed message", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_trc", name: "Time Range Change"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_trc", name: "Time Range Change"})
 
       {:ok, view, _html} = live(conn, ~p"/dashboards/#{dashboard.id}")
 
@@ -430,8 +424,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
           transport: :gnmi
         })
 
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_pubsub", name: "PubSub Test"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_pubsub", name: "PubSub Test"})
 
       {:ok, _widget} =
         Dashboards.add_widget(dashboard, %{
@@ -521,16 +514,14 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
 
   describe "Show - widget display" do
     test "shows no widgets message when empty", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_no_wgts", name: "No Widgets"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_no_wgts", name: "No Widgets"})
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "No widgets configured"
     end
 
     test "hides no widgets message when widgets exist", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_has_wgts", name: "Has Widgets"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_has_wgts", name: "Has Widgets"})
 
       {:ok, _} =
         Dashboards.add_widget(dashboard, %{
@@ -555,8 +546,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "widget with position shows correct grid span", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_grid", name: "Grid Test"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_grid", name: "Grid Test"})
 
       {:ok, _widget} =
         Dashboards.add_widget(dashboard, %{
@@ -572,8 +562,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
     end
 
     test "widget with small position shows correct grid span", %{conn: conn} do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_grid_sm", name: "Small Grid"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_grid_sm", name: "Small Grid"})
 
       {:ok, _widget} =
         Dashboards.add_widget(dashboard, %{

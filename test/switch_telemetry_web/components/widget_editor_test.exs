@@ -68,8 +68,7 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
       "widget_id" => widget_id
     }
 
-    {:ok, view, html} =
-      live_isolated(conn, WidgetEditorTestLive, session: session)
+    {:ok, view, html} = live_isolated(conn, WidgetEditorTestLive, session: session)
 
     {view, html}
   end
@@ -291,8 +290,7 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
           time_range: %{"type" => "relative", "duration" => "6h"}
         })
 
-      {_view, html} =
-        render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
+      {_view, html} = render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
 
       assert html =~ "widget-form"
     end
@@ -306,8 +304,7 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
           time_range: %{type: "relative", duration: "15m"}
         })
 
-      {_view, html} =
-        render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
+      {_view, html} = render_editor(conn, dashboard, action: :edit_widget, widget_id: widget.id)
 
       assert html =~ "widget-form"
     end

@@ -101,8 +101,7 @@ defmodule SwitchTelemetryWeb.Components.NavigationTest do
 
   describe "MobileNav" do
     test "renders all standard nav items" do
-      html =
-        render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
+      html = render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
 
       assert html =~ "Dashboards"
       assert html =~ "Devices"
@@ -113,22 +112,19 @@ defmodule SwitchTelemetryWeb.Components.NavigationTest do
     end
 
     test "hides admin items for non-admin users" do
-      html =
-        render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
+      html = render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
 
       refute html =~ "Users"
     end
 
     test "shows admin items for admin users" do
-      html =
-        render_component(&mobile_nav/1, %{current_user: admin_user(), current_path: "/"})
+      html = render_component(&mobile_nav/1, %{current_user: admin_user(), current_path: "/"})
 
       assert html =~ "Users"
     end
 
     test "renders app title" do
-      html =
-        render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
+      html = render_component(&mobile_nav/1, %{current_user: viewer_user(), current_path: "/"})
 
       assert html =~ "Switch Telemetry"
     end

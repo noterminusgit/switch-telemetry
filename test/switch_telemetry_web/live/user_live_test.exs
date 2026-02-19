@@ -200,8 +200,7 @@ defmodule SwitchTelemetryWeb.UserLiveTest do
     end
 
     test "non-admin user is redirected", %{conn: conn} do
-      {:error, {:redirect, %{to: path, flash: flash}}} =
-        live(conn, ~p"/admin/users")
+      {:error, {:redirect, %{to: path, flash: flash}}} = live(conn, ~p"/admin/users")
 
       assert path == "/"
       assert flash["error"] =~ "not authorized"

@@ -25,8 +25,7 @@ defmodule SwitchTelemetry.Dashboards.AdvancedTest do
     end
 
     test "clones widgets with new IDs" do
-      {:ok, original} =
-        Dashboards.create_dashboard(%{id: "dash_clone_w", name: "With Widgets"})
+      {:ok, original} = Dashboards.create_dashboard(%{id: "dash_clone_w", name: "With Widgets"})
 
       {:ok, _w1} =
         Dashboards.add_widget(original, %{
@@ -63,8 +62,7 @@ defmodule SwitchTelemetry.Dashboards.AdvancedTest do
           password: "valid_password123"
         })
 
-      {:ok, original} =
-        Dashboards.create_dashboard(%{id: "dash_clone_user", name: "User Clone"})
+      {:ok, original} = Dashboards.create_dashboard(%{id: "dash_clone_user", name: "User Clone"})
 
       {:ok, clone} = Dashboards.clone_dashboard(original, user.id)
       assert clone.created_by == user.id
@@ -92,8 +90,7 @@ defmodule SwitchTelemetry.Dashboards.AdvancedTest do
     end
 
     test "updates dashboard tags" do
-      {:ok, dashboard} =
-        Dashboards.create_dashboard(%{id: "dash_tags2", name: "Tag Update"})
+      {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_tags2", name: "Tag Update"})
 
       {:ok, updated} = Dashboards.update_dashboard(dashboard, %{tags: ["new_tag"]})
       assert updated.tags == ["new_tag"]

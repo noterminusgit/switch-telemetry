@@ -34,15 +34,13 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   def start_link(opts) do
     device = Keyword.fetch!(opts, :device)
 
-    name =
-      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device.id}}}
+    name = {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device.id}}}
 
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   def stop(device_id) do
-    name =
-      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device_id}}}
+    name = {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:netconf, device_id}}}
 
     GenServer.stop(name)
   end

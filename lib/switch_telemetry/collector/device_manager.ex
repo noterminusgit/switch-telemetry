@@ -70,8 +70,7 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
   def handle_info(:start_assigned_devices, state) do
     collector_node = Atom.to_string(Node.self())
 
-    devices =
-      Devices.list_devices_for_collector(collector_node)
+    devices = Devices.list_devices_for_collector(collector_node)
 
     sessions =
       Enum.reduce(devices, state.sessions, fn device, acc ->

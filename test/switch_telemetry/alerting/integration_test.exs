@@ -97,8 +97,7 @@ defmodule SwitchTelemetry.Alerting.IntegrationTest do
     assert rule.state == :ok
     assert rule.last_resolved_at != nil
 
-    resolved_events =
-      Alerting.list_events(rule.id) |> Enum.filter(&(&1.status == :resolved))
+    resolved_events = Alerting.list_events(rule.id) |> Enum.filter(&(&1.status == :resolved))
 
     assert length(resolved_events) >= 1
   end
