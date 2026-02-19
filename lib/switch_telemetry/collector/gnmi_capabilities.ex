@@ -7,6 +7,9 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
   alias SwitchTelemetry.Collector.{SubscriptionPaths, TlsHelper}
   alias SwitchTelemetry.Devices
 
+  @connect_timeout 10_000
+  @rpc_timeout 30_000
+
   @type model_info :: %{name: String.t(), organization: String.t(), version: String.t()}
 
   @platform_model_patterns [
@@ -33,10 +36,12 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
   def fetch_capabilities(device) do
     credential = load_credential(device)
     grpc_opts = TlsHelper.build_grpc_opts(credential)
+    grpc_opts = Keyword.merge(grpc_opts, adapter_opts: %{connect_timeout: @connect_timeout})
     target = "#{device.ip_address}:#{device.gnmi_port}"
 
     with {:ok, channel} <- grpc_client().connect(target, grpc_opts),
-         {:ok, response} <- grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}) do
+         {:ok, response} <-
+           grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout) do
       grpc_client().disconnect(channel)
 
       models = extract_models(response)

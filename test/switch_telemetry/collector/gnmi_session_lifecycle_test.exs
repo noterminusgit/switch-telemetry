@@ -90,7 +90,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       state = make_state(device, retry_count: 3)
 
       MockGrpcClient
-      |> expect(:connect, fn target, [] ->
+      |> expect(:connect, fn target, _opts ->
         assert target == "#{device.ip_address}:#{device.gnmi_port}"
         {:ok, :fake_channel}
       end)
@@ -107,7 +107,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       state = make_state(device)
 
       MockGrpcClient
-      |> expect(:connect, fn _target, [] -> {:ok, :fake_channel} end)
+      |> expect(:connect, fn _target, _opts -> {:ok, :fake_channel} end)
 
       {:noreply, _new_state} = GnmiSession.handle_info(:connect, state)
 
@@ -121,7 +121,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       state = make_state(device, retry_count: 0)
 
       MockGrpcClient
-      |> expect(:connect, fn _target, [] -> {:error, :connection_refused} end)
+      |> expect(:connect, fn _target, _opts -> {:error, :connection_refused} end)
 
       {:noreply, new_state} = GnmiSession.handle_info(:connect, state)
 
@@ -135,7 +135,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       state = make_state(device)
 
       MockGrpcClient
-      |> expect(:connect, fn _target, [] -> {:error, :timeout} end)
+      |> expect(:connect, fn _target, _opts -> {:error, :timeout} end)
 
       {:noreply, _new_state} = GnmiSession.handle_info(:connect, state)
 
@@ -148,7 +148,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       state = make_state(device, retry_count: 4)
 
       MockGrpcClient
-      |> expect(:connect, fn _target, [] -> {:error, :refused} end)
+      |> expect(:connect, fn _target, _opts -> {:error, :refused} end)
 
       {:noreply, new_state} = GnmiSession.handle_info(:connect, state)
 

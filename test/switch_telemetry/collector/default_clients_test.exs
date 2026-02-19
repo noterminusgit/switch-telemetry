@@ -44,9 +44,13 @@ defmodule SwitchTelemetry.Collector.DefaultClientsTest do
       assert function_exported?(DefaultGrpcClient, :capabilities, 2)
     end
 
-    test "exports exactly 6 public functions" do
+    test "exports capabilities/3" do
+      assert function_exported?(DefaultGrpcClient, :capabilities, 3)
+    end
+
+    test "exports exactly 7 public functions" do
       functions = DefaultGrpcClient.__info__(:functions)
-      assert length(functions) == 6
+      assert length(functions) == 7
 
       assert {:connect, 2} in functions
       assert {:disconnect, 1} in functions
@@ -54,6 +58,7 @@ defmodule SwitchTelemetry.Collector.DefaultClientsTest do
       assert {:send_request, 2} in functions
       assert {:recv, 1} in functions
       assert {:capabilities, 2} in functions
+      assert {:capabilities, 3} in functions
     end
   end
 

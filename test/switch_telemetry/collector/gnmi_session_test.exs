@@ -1275,7 +1275,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       {:noreply, _} = GnmiSession.handle_info(:connect, state_no_cred)
 
       assert_received {:connect_opts, opts}
-      assert opts == []
+      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
     end
   end
 
@@ -1312,9 +1312,12 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
          %{
            state: state
          } do
+      test_pid = self()
+
       MockGrpcClient
-      |> expect(:connect, fn target, _opts ->
+      |> expect(:connect, fn target, opts ->
         assert target == "#{state.device.ip_address}:#{state.device.gnmi_port}"
+        send(test_pid, {:connect_opts, opts})
         {:ok, :fake_channel}
       end)
 
@@ -1324,6 +1327,9 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert new_state.retry_count == 0
       # :subscribe should be sent to self
       assert_received :subscribe
+
+      assert_received {:connect_opts, opts}
+      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
     end
 
     test "failed connection sets device unreachable and increments retry_count", %{state: state} do

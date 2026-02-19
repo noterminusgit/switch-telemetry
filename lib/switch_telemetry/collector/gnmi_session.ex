@@ -18,6 +18,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   @max_retry_delay :timer.minutes(5)
   @base_retry_delay :timer.seconds(5)
+  @connect_timeout 10_000
 
   defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential]
 
@@ -26,15 +27,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def start_link(opts) do
     device = Keyword.fetch!(opts, :device)
 
-    name =
-      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device.id}}}
+    name = {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device.id}}}
 
     GenServer.start_link(__MODULE__, opts, name: name)
   end
 
   def stop(device_id) do
-    name =
-      {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device_id}}}
+    name = {:via, Horde.Registry, {SwitchTelemetry.DistributedRegistry, {:gnmi, device_id}}}
 
     GenServer.stop(name)
   end
@@ -54,6 +53,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     target = "#{state.device.ip_address}:#{state.device.gnmi_port}"
     credential = load_credential(state.device)
     grpc_opts = TlsHelper.build_grpc_opts(credential)
+    grpc_opts = Keyword.merge(grpc_opts, adapter_opts: %{connect_timeout: @connect_timeout})
 
     case grpc_client().connect(target, grpc_opts) do
       {:ok, channel} ->

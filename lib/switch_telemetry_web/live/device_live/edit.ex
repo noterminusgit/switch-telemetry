@@ -2,6 +2,7 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
   use SwitchTelemetryWeb, :live_view
 
   alias SwitchTelemetry.Devices
+  alias SwitchTelemetry.Collector.ConnectionTester
 
   @impl true
   @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
@@ -15,7 +16,9 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
        device: device,
        form: to_form(changeset),
        credentials: credentials,
-       page_title: "Edit #{device.hostname}"
+       page_title: "Edit #{device.hostname}",
+       testing_connection: false,
+       connection_results: nil
      )}
   end
 
@@ -43,6 +46,49 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
         {:noreply, assign(socket, form: to_form(changeset))}
     end
   end
+
+  def handle_event("test_connection", _params, socket) do
+    device = socket.assigns.device
+    lv_pid = self()
+
+    Task.start(fn ->
+      results =
+        try do
+          ConnectionTester.test_connection(device)
+        rescue
+          e ->
+            [
+              %{
+                protocol: :unknown,
+                success: false,
+                message: "Error: #{Exception.message(e)}",
+                elapsed_ms: 0
+              }
+            ]
+        end
+
+      send(lv_pid, {:connection_test_result, results})
+    end)
+
+    Process.send_after(self(), :connection_test_timeout, 45_000)
+
+    {:noreply, assign(socket, testing_connection: true, connection_results: nil)}
+  end
+
+  @impl true
+  def handle_info({:connection_test_result, results}, socket) do
+    {:noreply, assign(socket, testing_connection: false, connection_results: results)}
+  end
+
+  def handle_info(:connection_test_timeout, socket) do
+    if socket.assigns.testing_connection do
+      {:noreply, assign(socket, testing_connection: false)}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_info(_msg, socket), do: {:noreply, socket}
 
   @impl true
   @spec render(map()) :: Phoenix.LiveView.Rendered.t()
@@ -162,6 +208,63 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
             </.link>
           </:actions>
         </.simple_form>
+
+        <div class="mt-6 border-t pt-6">
+          <h3 class="text-sm font-medium text-gray-900 mb-3">Connection Test</h3>
+          <button
+            phx-click="test_connection"
+            disabled={@testing_connection}
+            class={"inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md #{if @testing_connection, do: "text-gray-400 bg-gray-100 cursor-not-allowed", else: "text-gray-700 bg-white hover:bg-gray-50"}"}
+          >
+            <%= if @testing_connection do %>
+              <svg
+                class="animate-spin -ml-1 mr-2 h-4 w-4 text-gray-400"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                <path
+                  class="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              Testing...
+            <% else %>
+              Test Connection
+            <% end %>
+          </button>
+
+          <%= if @connection_results do %>
+            <div class="mt-4 space-y-2">
+              <%= for result <- @connection_results do %>
+                <div class={"flex items-center p-3 rounded-md text-sm #{if result.success, do: "bg-green-50 text-green-800", else: "bg-red-50 text-red-800"}"}>
+                  <%= if result.success do %>
+                    <svg class="h-5 w-5 text-green-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  <% else %>
+                    <svg class="h-5 w-5 text-red-400 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                      <path
+                        fill-rule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                        clip-rule="evenodd"
+                      />
+                    </svg>
+                  <% end %>
+                  <span class="font-medium uppercase mr-2"><%= result.protocol %></span>
+                  <span><%= result.message %></span>
+                  <span class="ml-auto text-xs text-gray-500"><%= result.elapsed_ms %>ms</span>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </div>
       </div>
     </div>
     """

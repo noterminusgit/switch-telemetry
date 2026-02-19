@@ -74,7 +74,9 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
       assert {:ok, paths} = GnmiCapabilities.fetch_paths(device)
@@ -114,7 +116,9 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
       assert {:ok, %{paths: paths, device_model: model}} =
@@ -122,6 +126,54 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       assert "/interfaces/interface/state/counters" in paths
       assert model == "ASR9K"
+    end
+
+    test "connect passes adapter_opts with connect_timeout", %{device: device} do
+      test_pid = self()
+
+      response = %Gnmi.CapabilityResponse{
+        supported_models: [],
+        supported_encodings: [],
+        gNMI_version: "0.7.0"
+      }
+
+      MockGrpcClient
+      |> expect(:connect, fn _target, opts ->
+        send(test_pid, {:connect_opts, opts})
+        {:ok, :channel}
+      end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
+      |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
+
+      GnmiCapabilities.fetch_capabilities(device)
+
+      assert_received {:connect_opts, opts}
+      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
+    end
+
+    test "capabilities passes timeout option", %{device: device} do
+      test_pid = self()
+
+      response = %Gnmi.CapabilityResponse{
+        supported_models: [],
+        supported_encodings: [],
+        gNMI_version: "0.7.0"
+      }
+
+      MockGrpcClient
+      |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, opts ->
+        send(test_pid, {:capabilities_opts, opts})
+        {:ok, response}
+      end)
+      |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
+
+      GnmiCapabilities.fetch_capabilities(device)
+
+      assert_received {:capabilities_opts, opts}
+      assert opts[:timeout] == 30_000
     end
 
     test "returns nil device_model when no patterns match", %{device: device} do
@@ -139,7 +191,9 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
       assert {:ok, %{device_model: nil}} = GnmiCapabilities.fetch_capabilities(device)
@@ -213,11 +267,12 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
-      assert {:ok, %{paths: paths, model: "ASR9K"}} =
-               GnmiCapabilities.enumerate_and_save(device)
+      assert {:ok, %{paths: paths, model: "ASR9K"}} = GnmiCapabilities.enumerate_and_save(device)
 
       assert "/interfaces/interface/state/counters" in paths
 
@@ -266,11 +321,12 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
-      assert {:ok, %{paths: paths, model: nil}} =
-               GnmiCapabilities.enumerate_and_save(device)
+      assert {:ok, %{paths: paths, model: nil}} = GnmiCapabilities.enumerate_and_save(device)
 
       assert "/interfaces/interface/state/counters" in paths
     end
@@ -290,11 +346,12 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       MockGrpcClient
       |> expect(:connect, fn _target, _opts -> {:ok, :channel} end)
-      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{} -> {:ok, response} end)
+      |> expect(:capabilities, fn :channel, %Gnmi.CapabilityRequest{}, _opts ->
+        {:ok, response}
+      end)
       |> expect(:disconnect, fn :channel -> {:ok, :channel} end)
 
-      assert {:ok, %{paths: paths, model: nil}} =
-               GnmiCapabilities.enumerate_and_save(device)
+      assert {:ok, %{paths: paths, model: nil}} = GnmiCapabilities.enumerate_and_save(device)
 
       assert "/interfaces/interface/state/counters" in paths
 
