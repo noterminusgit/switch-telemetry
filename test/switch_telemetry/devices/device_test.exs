@@ -60,7 +60,14 @@ defmodule SwitchTelemetry.Devices.DeviceTest do
     end
 
     test "all platform values are valid" do
-      for platform <- [:cisco_iosxr, :cisco_iosxe, :cisco_nxos, :juniper_junos, :arista_eos, :nokia_sros] do
+      for platform <- [
+            :cisco_iosxr,
+            :cisco_iosxe,
+            :cisco_nxos,
+            :juniper_junos,
+            :arista_eos,
+            :nokia_sros
+          ] do
         attrs = Map.put(@valid_attrs, :platform, platform)
         changeset = Device.changeset(%Device{}, attrs)
         assert changeset.valid?, "Expected #{platform} to be a valid platform"
@@ -87,6 +94,7 @@ defmodule SwitchTelemetry.Devices.DeviceTest do
     test "secure_mode true + gnmi transport + no credential_id is invalid" do
       attrs = Map.merge(@valid_attrs, %{secure_mode: true, transport: :gnmi})
       changeset = Device.changeset(%Device{}, attrs)
+
       assert %{credential_id: ["is required when secure mode is enabled for gNMI"]} =
                errors_on(changeset)
     end
@@ -118,6 +126,7 @@ defmodule SwitchTelemetry.Devices.DeviceTest do
     test "secure_mode true + both transport + no credential_id is invalid" do
       attrs = Map.merge(@valid_attrs, %{secure_mode: true, transport: :both})
       changeset = Device.changeset(%Device{}, attrs)
+
       assert %{credential_id: ["is required when secure mode is enabled for gNMI"]} =
                errors_on(changeset)
     end

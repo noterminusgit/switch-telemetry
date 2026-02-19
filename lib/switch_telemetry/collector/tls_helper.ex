@@ -117,7 +117,8 @@ defmodule SwitchTelemetry.Collector.TlsHelper do
   @spec decode_pem_key(binary()) :: {:ok, tuple()} | {:error, term()}
   def decode_pem_key(pem) when is_binary(pem) do
     case :public_key.pem_decode(pem) do
-      [{type, der, :not_encrypted} | _] when type in [:RSAPrivateKey, :ECPrivateKey, :PrivateKeyInfo] ->
+      [{type, der, :not_encrypted} | _]
+      when type in [:RSAPrivateKey, :ECPrivateKey, :PrivateKeyInfo] ->
         {:ok, {type, der}}
 
       [] ->

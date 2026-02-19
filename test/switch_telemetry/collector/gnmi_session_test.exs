@@ -670,7 +670,14 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
 
   describe "handle_info :connect callback" do
     setup do
-      device = %{id: "dev1", hostname: "switch1", ip_address: "10.0.0.1", gnmi_port: 6030, credential_id: nil}
+      device = %{
+        id: "dev1",
+        hostname: "switch1",
+        ip_address: "10.0.0.1",
+        gnmi_port: 6030,
+        credential_id: nil
+      }
+
       state = %GnmiSession{device: device, retry_count: 0}
       {:ok, state: state, device: device}
     end

@@ -183,7 +183,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
 
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       html = render(view)
@@ -240,7 +242,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
 
       # Select paths via checkboxes
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       view
@@ -273,7 +277,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
 
       # Select a path first
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       view
@@ -300,7 +306,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
 
       # Select a path first
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       view
@@ -324,7 +332,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
 
       # Select a path
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       html = render(view)
@@ -332,7 +342,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
 
       # Deselect the same path
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       html = render(view)
@@ -364,7 +376,9 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       {:ok, view, _html} = live(conn, ~p"/devices/#{device.id}/subscriptions/new")
 
       view
-      |> element(~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|)
+      |> element(
+        ~s|input[phx-click="toggle_path"][phx-value-path="/interfaces/interface/state/counters"]|
+      )
       |> render_click()
 
       view
@@ -527,7 +541,10 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
         live(conn, ~p"/devices/#{device.id}/subscriptions/#{sub.id}/edit")
 
       # Send enumerate success result
-      send(view.pid, {:enumerate_result, sub.id, {:ok, %{paths: ["/discovered/path"], model: nil}}})
+      send(
+        view.pid,
+        {:enumerate_result, sub.id, {:ok, %{paths: ["/discovered/path"], model: nil}}}
+      )
 
       _ = render(view)
       html = render(view)

@@ -112,7 +112,14 @@ defmodule SwitchTelemetry.DevicesTest do
     end
 
     test "creates device with all platforms" do
-      for platform <- [:cisco_iosxr, :cisco_iosxe, :cisco_nxos, :juniper_junos, :arista_eos, :nokia_sros] do
+      for platform <- [
+            :cisco_iosxr,
+            :cisco_iosxe,
+            :cisco_nxos,
+            :juniper_junos,
+            :arista_eos,
+            :nokia_sros
+          ] do
         attrs = valid_device_attrs(%{platform: platform})
         assert {:ok, device} = Devices.create_device(attrs)
         assert device.platform == platform

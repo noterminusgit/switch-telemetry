@@ -6,7 +6,9 @@ defmodule SwitchTelemetry.Collector.SubscriptionPathsTest do
   setup do
     # Use a tmp dir that mirrors the real priv/gnmi_paths structure,
     # copying the static JSON files so list_paths/1 works normally.
-    tmp_dir = Path.join(System.tmp_dir!(), "gnmi_paths_test_#{System.unique_integer([:positive])}")
+    tmp_dir =
+      Path.join(System.tmp_dir!(), "gnmi_paths_test_#{System.unique_integer([:positive])}")
+
     File.mkdir_p!(tmp_dir)
 
     src_dir = Application.app_dir(:switch_telemetry, "priv/gnmi_paths")

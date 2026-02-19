@@ -132,11 +132,25 @@ defmodule SwitchTelemetry.Collector.TlsHelperTest do
     key_path = Path.join(tmp_dir, "test_key_#{System.unique_integer([:positive])}.pem")
 
     {_, 0} =
-      System.cmd("openssl", [
-        "req", "-x509", "-newkey", "rsa:2048", "-keyout", key_path,
-        "-out", cert_path, "-days", "1", "-nodes",
-        "-subj", "/CN=test"
-      ], stderr_to_stdout: true)
+      System.cmd(
+        "openssl",
+        [
+          "req",
+          "-x509",
+          "-newkey",
+          "rsa:2048",
+          "-keyout",
+          key_path,
+          "-out",
+          cert_path,
+          "-days",
+          "1",
+          "-nodes",
+          "-subj",
+          "/CN=test"
+        ],
+        stderr_to_stdout: true
+      )
 
     cert_pem = File.read!(cert_path)
     key_pem = File.read!(key_path)

@@ -41,7 +41,13 @@ defmodule SwitchTelemetry.Devices.CredentialTest do
     end
 
     test "ca_cert is optional" do
-      attrs = Map.put(@valid_attrs, :ca_cert, "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----")
+      attrs =
+        Map.put(
+          @valid_attrs,
+          :ca_cert,
+          "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+        )
+
       changeset = Credential.changeset(%Credential{}, attrs)
       assert changeset.valid?
     end

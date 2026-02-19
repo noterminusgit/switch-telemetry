@@ -61,7 +61,11 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
     test "returns paths from capabilities response", %{device: device} do
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"},
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          },
           %Gnmi.ModelData{name: "openconfig-system", organization: "OpenConfig", version: "1.0.0"}
         ],
         supported_encodings: [],
@@ -93,8 +97,16 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
     test "returns paths and device model from capabilities", %{device: device} do
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"},
-          %Gnmi.ModelData{name: "Cisco-IOS-XR-asr9k-something", organization: "Cisco", version: "1.0.0"}
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          },
+          %Gnmi.ModelData{
+            name: "Cisco-IOS-XR-asr9k-something",
+            organization: "Cisco",
+            version: "1.0.0"
+          }
         ],
         supported_encodings: [],
         gNMI_version: "0.7.0"
@@ -115,7 +127,11 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
     test "returns nil device_model when no patterns match", %{device: device} do
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"}
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          }
         ],
         supported_encodings: [],
         gNMI_version: "0.7.0"
@@ -174,11 +190,22 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
   end
 
   describe "enumerate_and_save/1" do
-    test "fetches capabilities, saves paths, and updates device model", %{device: device, tmp_dir: tmp_dir} do
+    test "fetches capabilities, saves paths, and updates device model", %{
+      device: device,
+      tmp_dir: tmp_dir
+    } do
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"},
-          %Gnmi.ModelData{name: "Cisco-IOS-XR-asr9k-config", organization: "Cisco", version: "1.0.0"}
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          },
+          %Gnmi.ModelData{
+            name: "Cisco-IOS-XR-asr9k-config",
+            organization: "Cisco",
+            version: "1.0.0"
+          }
         ],
         supported_encodings: [],
         gNMI_version: "0.7.0"
@@ -227,7 +254,11 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
 
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"}
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          }
         ],
         supported_encodings: [],
         gNMI_version: "0.7.0"
@@ -247,7 +278,11 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
     test "saves with fallback key when no model detected", %{device: device, tmp_dir: tmp_dir} do
       response = %Gnmi.CapabilityResponse{
         supported_models: [
-          %Gnmi.ModelData{name: "openconfig-interfaces", organization: "OpenConfig", version: "3.0.0"}
+          %Gnmi.ModelData{
+            name: "openconfig-interfaces",
+            organization: "OpenConfig",
+            version: "3.0.0"
+          }
         ],
         supported_encodings: [],
         gNMI_version: "0.7.0"
