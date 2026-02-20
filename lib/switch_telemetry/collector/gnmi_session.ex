@@ -52,7 +52,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def handle_info(:connect, state) do
     target = "#{state.device.ip_address}:#{state.device.gnmi_port}"
     credential = load_credential(state.device)
-    grpc_opts = TlsHelper.build_grpc_opts(credential)
+    grpc_opts = TlsHelper.build_grpc_opts(state.device.secure_mode, credential)
     grpc_opts = Keyword.merge(grpc_opts, adapter_opts: [connect_timeout: @connect_timeout])
 
     case grpc_client().connect(target, grpc_opts) do

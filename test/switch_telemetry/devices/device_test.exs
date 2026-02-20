@@ -84,25 +84,48 @@ defmodule SwitchTelemetry.Devices.DeviceTest do
       assert Ecto.Changeset.get_field(changeset, :status) == :active
     end
 
-    test "defaults secure_mode to false" do
+    test "defaults secure_mode to insecure" do
       changeset = Device.changeset(%Device{}, @valid_attrs)
-      assert Ecto.Changeset.get_field(changeset, :secure_mode) == false
+      assert Ecto.Changeset.get_field(changeset, :secure_mode) == :insecure
+    end
+
+    test "all secure_mode enum values are accepted" do
+      for mode <- [:insecure, :tls_skip_verify] do
+        attrs = Map.put(@valid_attrs, :secure_mode, mode)
+        changeset = Device.changeset(%Device{}, attrs)
+        assert changeset.valid?, "Expected #{mode} to be a valid secure_mode"
+      end
+
+      # tls_verified and mtls require a credential for gNMI transport
+      for mode <- [:tls_verified, :mtls] do
+        attrs = Map.merge(@valid_attrs, %{secure_mode: mode, credential_id: "cred_test001"})
+        changeset = Device.changeset(%Device{}, attrs)
+
+        refute Map.has_key?(errors_on(changeset), :secure_mode),
+               "Expected #{mode} to be a valid secure_mode"
+      end
+    end
+
+    test "invalid secure_mode value is rejected" do
+      attrs = Map.put(@valid_attrs, :secure_mode, :invalid_mode)
+      changeset = Device.changeset(%Device{}, attrs)
+      assert %{secure_mode: ["is invalid"]} = errors_on(changeset)
     end
   end
 
   describe "secure_mode validation" do
-    test "secure_mode true + gnmi transport + no credential_id is invalid" do
-      attrs = Map.merge(@valid_attrs, %{secure_mode: true, transport: :gnmi})
+    test "tls_verified + gnmi transport + no credential_id is invalid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :tls_verified, transport: :gnmi})
       changeset = Device.changeset(%Device{}, attrs)
 
-      assert %{credential_id: ["is required when secure mode is enabled for gNMI"]} =
+      assert %{credential_id: ["is required for TLS-verified gNMI transport"]} =
                errors_on(changeset)
     end
 
-    test "secure_mode true + gnmi transport + credential_id present is valid" do
+    test "tls_verified + gnmi transport + credential_id present is valid" do
       attrs =
         Map.merge(@valid_attrs, %{
-          secure_mode: true,
+          secure_mode: :tls_verified,
           transport: :gnmi,
           credential_id: "cred_test001"
         })
@@ -111,30 +134,56 @@ defmodule SwitchTelemetry.Devices.DeviceTest do
       refute Map.has_key?(errors_on(changeset), :credential_id)
     end
 
-    test "secure_mode false + gnmi transport + no credential_id is valid" do
-      attrs = Map.merge(@valid_attrs, %{secure_mode: false, transport: :gnmi})
-      changeset = Device.changeset(%Device{}, attrs)
-      assert changeset.valid?
-    end
-
-    test "secure_mode true + netconf transport + no credential_id is valid" do
-      attrs = Map.merge(@valid_attrs, %{secure_mode: true, transport: :netconf})
-      changeset = Device.changeset(%Device{}, attrs)
-      assert changeset.valid?
-    end
-
-    test "secure_mode true + both transport + no credential_id is invalid" do
-      attrs = Map.merge(@valid_attrs, %{secure_mode: true, transport: :both})
+    test "mtls + gnmi transport + no credential_id is invalid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :mtls, transport: :gnmi})
       changeset = Device.changeset(%Device{}, attrs)
 
-      assert %{credential_id: ["is required when secure mode is enabled for gNMI"]} =
+      assert %{credential_id: ["is required for TLS-verified gNMI transport"]} =
                errors_on(changeset)
     end
 
-    test "secure_mode true + both transport + credential_id present is valid" do
+    test "mtls + gnmi transport + credential_id present is valid" do
       attrs =
         Map.merge(@valid_attrs, %{
-          secure_mode: true,
+          secure_mode: :mtls,
+          transport: :gnmi,
+          credential_id: "cred_test001"
+        })
+
+      changeset = Device.changeset(%Device{}, attrs)
+      refute Map.has_key?(errors_on(changeset), :credential_id)
+    end
+
+    test "insecure + gnmi transport + no credential_id is valid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :insecure, transport: :gnmi})
+      changeset = Device.changeset(%Device{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "tls_skip_verify + gnmi transport + no credential_id is valid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :tls_skip_verify, transport: :gnmi})
+      changeset = Device.changeset(%Device{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "tls_verified + netconf transport + no credential_id is valid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :tls_verified, transport: :netconf})
+      changeset = Device.changeset(%Device{}, attrs)
+      assert changeset.valid?
+    end
+
+    test "tls_verified + both transport + no credential_id is invalid" do
+      attrs = Map.merge(@valid_attrs, %{secure_mode: :tls_verified, transport: :both})
+      changeset = Device.changeset(%Device{}, attrs)
+
+      assert %{credential_id: ["is required for TLS-verified gNMI transport"]} =
+               errors_on(changeset)
+    end
+
+    test "tls_verified + both transport + credential_id present is valid" do
+      attrs =
+        Map.merge(@valid_attrs, %{
+          secure_mode: :tls_verified,
           transport: :both,
           credential_id: "cred_test001"
         })

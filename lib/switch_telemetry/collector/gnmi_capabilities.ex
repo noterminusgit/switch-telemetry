@@ -35,7 +35,7 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
           {:ok, %{paths: [String.t()], device_model: String.t() | nil}} | {:error, term()}
   def fetch_capabilities(device) do
     credential = load_credential(device)
-    grpc_opts = TlsHelper.build_grpc_opts(credential)
+    grpc_opts = TlsHelper.build_grpc_opts(device.secure_mode, credential)
     grpc_opts = Keyword.merge(grpc_opts, adapter_opts: [connect_timeout: @connect_timeout])
     target = "#{device.ip_address}:#{device.gnmi_port}"
 

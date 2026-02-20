@@ -1,70 +1,69 @@
 defmodule SwitchTelemetry.Collector.TlsHelper do
   @moduledoc """
-  Builds gRPC connection options from device credentials for TLS/SSL support.
+  Builds gRPC connection options based on device transport security mode and credentials.
   """
 
-  alias SwitchTelemetry.Devices.Credential
+  alias SwitchTelemetry.Devices.{Credential, Device}
 
   @type grpc_opts :: keyword()
 
   @doc """
-  Builds gRPC connect options from a credential.
+  Builds gRPC connect options for a given transport security mode and credential.
 
   Returns keyword list suitable for passing to `GRPC.Stub.connect/2`.
 
-  - If credential is nil: returns `[]`
-  - If credential has `tls_cert` + `tls_key`: mTLS with client cert auth
-  - If credential has `ca_cert`: server verification enabled
-  - If neither: `verify: :verify_none` (insecure, for labs)
+  ## Modes
+
+  - `:insecure` — plaintext gRPC (no TLS), returns `[]`
+  - `:tls_skip_verify` — TLS with `verify: :verify_none`
+  - `:tls_verified` — TLS with CA cert verification (falls back to `verify_none` if no CA)
+  - `:mtls` — mutual TLS with client cert + CA verification (graceful fallback)
+  """
+  @spec build_grpc_opts(Device.secure_mode(), Credential.t() | nil) :: grpc_opts()
+  def build_grpc_opts(:insecure, _credential), do: []
+
+  def build_grpc_opts(:tls_skip_verify, _credential) do
+    [cred: GRPC.Credential.new(ssl: [verify: :verify_none])]
+  end
+
+  def build_grpc_opts(:tls_verified, credential) do
+    ssl_opts = build_ca_opts(credential) ++ [verify: :verify_peer]
+
+    # Fall back to verify_none if no CA certs were decoded
+    ssl_opts =
+      if Keyword.has_key?(ssl_opts, :cacerts) do
+        ssl_opts
+      else
+        Keyword.put(ssl_opts, :verify, :verify_none)
+      end
+
+    [cred: GRPC.Credential.new(ssl: ssl_opts)]
+  end
+
+  def build_grpc_opts(:mtls, credential) do
+    ca_opts = build_ca_opts(credential)
+    client_opts = build_client_cert_opts(credential)
+
+    ssl_opts = ca_opts ++ client_opts ++ [verify: :verify_peer]
+
+    ssl_opts =
+      if Keyword.has_key?(ssl_opts, :cacerts) do
+        ssl_opts
+      else
+        Keyword.put(ssl_opts, :verify, :verify_none)
+      end
+
+    [cred: GRPC.Credential.new(ssl: ssl_opts)]
+  end
+
+  @doc """
+  Backward-compatible 1-arity version. Delegates to `:tls_skip_verify` mode.
   """
   @spec build_grpc_opts(Credential.t() | nil) :: grpc_opts()
   def build_grpc_opts(nil), do: []
 
   def build_grpc_opts(%Credential{} = credential) do
-    ssl_opts = build_ssl_opts(credential)
-
-    if ssl_opts == [] do
-      []
-    else
-      [cred: GRPC.Credential.new(ssl: ssl_opts)]
-    end
-  end
-
-  @spec build_ssl_opts(Credential.t()) :: keyword()
-  defp build_ssl_opts(credential) do
-    opts = []
-
-    opts =
-      if has_value?(credential.tls_cert) and has_value?(credential.tls_key) do
-        case {decode_pem_cert(credential.tls_cert), decode_pem_key(credential.tls_key)} do
-          {{:ok, cert_der}, {:ok, key_tuple}} ->
-            opts ++ [cert: cert_der, key: key_tuple]
-
-          _ ->
-            opts
-        end
-      else
-        opts
-      end
-
-    opts =
-      if has_value?(credential.ca_cert) do
-        case decode_pem_certs(credential.ca_cert) do
-          {:ok, ca_certs} ->
-            opts ++ [cacerts: ca_certs, verify: :verify_peer]
-
-          _ ->
-            opts
-        end
-      else
-        if opts != [] do
-          opts ++ [verify: :verify_none]
-        else
-          opts ++ [verify: :verify_none]
-        end
-      end
-
-    opts
+    build_grpc_opts(:tls_skip_verify, credential)
   end
 
   @doc """
@@ -132,6 +131,39 @@ defmodule SwitchTelemetry.Collector.TlsHelper do
   end
 
   def decode_pem_key(_), do: {:error, :not_binary}
+
+  # --- Private helpers ---
+
+  @spec build_ca_opts(Credential.t() | nil) :: keyword()
+  defp build_ca_opts(nil), do: []
+
+  defp build_ca_opts(%Credential{} = credential) do
+    if has_value?(credential.ca_cert) do
+      case decode_pem_certs(credential.ca_cert) do
+        {:ok, ca_certs} -> [cacerts: ca_certs]
+        _ -> []
+      end
+    else
+      []
+    end
+  end
+
+  @spec build_client_cert_opts(Credential.t() | nil) :: keyword()
+  defp build_client_cert_opts(nil), do: []
+
+  defp build_client_cert_opts(%Credential{} = credential) do
+    if has_value?(credential.tls_cert) and has_value?(credential.tls_key) do
+      case {decode_pem_cert(credential.tls_cert), decode_pem_key(credential.tls_key)} do
+        {{:ok, cert_der}, {:ok, key_tuple}} ->
+          [cert: cert_der, key: key_tuple]
+
+        _ ->
+          []
+      end
+    else
+      []
+    end
+  end
 
   @spec decode_pem_certs(binary()) :: {:ok, [binary()]} | {:error, term()}
   defp decode_pem_certs(pem) when is_binary(pem) do

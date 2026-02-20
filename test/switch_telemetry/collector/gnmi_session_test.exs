@@ -675,7 +675,8 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         hostname: "switch1",
         ip_address: "10.0.0.1",
         gnmi_port: 6030,
-        credential_id: nil
+        credential_id: nil,
+        secure_mode: :insecure
       }
 
       state = %GnmiSession{device: device, retry_count: 0}

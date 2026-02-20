@@ -172,8 +172,14 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
 
             <.input
               field={@form[:secure_mode]}
-              type="checkbox"
-              label="Secure Mode (require credentials for gNMI)"
+              type="select"
+              label="gNMI Transport Security"
+              options={[
+                {"Insecure (plaintext)", "insecure"},
+                {"TLS (skip verify)", "tls_skip_verify"},
+                {"TLS (verified)", "tls_verified"},
+                {"Mutual TLS (mTLS)", "mtls"}
+              ]}
             />
 
             <.input

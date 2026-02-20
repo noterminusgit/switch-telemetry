@@ -2,6 +2,7 @@ defmodule SwitchTelemetry.Devices.Device do
   use Ecto.Schema
   import Ecto.Changeset
 
+  @type secure_mode :: :insecure | :tls_skip_verify | :tls_verified | :mtls
   @type t :: %__MODULE__{}
 
   @primary_key {:id, :string, autogenerate: false}
@@ -17,7 +18,11 @@ defmodule SwitchTelemetry.Devices.Device do
     field :transport, Ecto.Enum, values: [:gnmi, :netconf, :both]
     field :gnmi_port, :integer, default: 57400
     field :netconf_port, :integer, default: 830
-    field :secure_mode, :boolean, default: false
+
+    field :secure_mode, Ecto.Enum,
+      values: [:insecure, :tls_skip_verify, :tls_verified, :mtls],
+      default: :insecure
+
     field :tags, :map, default: %{}
     field :collection_interval_ms, :integer, default: 30_000
 
@@ -55,14 +60,14 @@ defmodule SwitchTelemetry.Devices.Device do
   end
 
   @spec validate_secure_mode(Ecto.Changeset.t()) :: Ecto.Changeset.t()
-  def validate_secure_mode(changeset) do
+  defp validate_secure_mode(changeset) do
     secure_mode = get_field(changeset, :secure_mode)
     transport = get_field(changeset, :transport)
     credential_id = get_field(changeset, :credential_id)
 
-    if secure_mode == true and transport in [:gnmi, :both] and
+    if secure_mode in [:tls_verified, :mtls] and transport in [:gnmi, :both] and
          (is_nil(credential_id) or credential_id == "") do
-      add_error(changeset, :credential_id, "is required when secure mode is enabled for gNMI")
+      add_error(changeset, :credential_id, "is required for TLS-verified gNMI transport")
     else
       changeset
     end
