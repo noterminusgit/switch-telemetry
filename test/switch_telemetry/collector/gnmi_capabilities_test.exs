@@ -150,7 +150,7 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilitiesTest do
       GnmiCapabilities.fetch_capabilities(device)
 
       assert_received {:connect_opts, opts}
-      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
+      assert opts[:adapter_opts] == [connect_timeout: 10_000]
     end
 
     test "capabilities passes timeout option", %{device: device} do

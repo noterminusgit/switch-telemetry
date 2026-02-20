@@ -1275,7 +1275,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       {:noreply, _} = GnmiSession.handle_info(:connect, state_no_cred)
 
       assert_received {:connect_opts, opts}
-      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
+      assert opts[:adapter_opts] == [connect_timeout: 10_000]
     end
   end
 
@@ -1329,7 +1329,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert_received :subscribe
 
       assert_received {:connect_opts, opts}
-      assert opts[:adapter_opts] == %{connect_timeout: 10_000}
+      assert opts[:adapter_opts] == [connect_timeout: 10_000]
     end
 
     test "failed connection sets device unreachable and increments retry_count", %{state: state} do
