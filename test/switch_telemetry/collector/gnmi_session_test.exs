@@ -1415,6 +1415,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         assert %Gnmi.SubscribeRequest{} = request
         :ok
       end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       # Use stub for recv since it runs in Task.async (different process)
       |> stub(:recv, fn :fake_stream ->
         send(test_pid, :recv_called)
@@ -1450,6 +1451,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         send(test_pid, {:sub_list, sub_list})
         :ok
       end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, Stream.map([], & &1)}
       end)
@@ -1536,6 +1538,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         send(test_pid, {:sub_count, length(sub_list.subscription)})
         :ok
       end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, Stream.map([], & &1)}
       end)
@@ -1764,6 +1767,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
         send(test_pid, {:sub_list, sub_list})
         :ok
       end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, Stream.map([], & &1)}
       end)
@@ -1842,6 +1846,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -1889,6 +1894,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -1928,6 +1934,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -1965,6 +1972,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -2009,6 +2017,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -2029,6 +2038,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:sync_response, true}}}]}
       end)
@@ -2043,6 +2053,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:error, :stream_reset}]}
       end)
@@ -2057,6 +2068,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:error, :connection_closed}
       end)
@@ -2084,6 +2096,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -2118,6 +2131,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)
@@ -2153,6 +2167,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok,
          [
@@ -2197,6 +2212,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       MockGrpcClient
       |> stub(:subscribe, fn :fake_channel -> :fake_stream end)
       |> stub(:send_request, fn :fake_stream, _request -> :ok end)
+      |> stub(:end_stream, fn :fake_stream -> :fake_stream end)
       |> stub(:recv, fn :fake_stream ->
         {:ok, [{:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}}]}
       end)

@@ -5,6 +5,7 @@ defmodule SwitchTelemetry.Collector.GrpcClient do
   @callback disconnect(term()) :: {:ok, term()}
   @callback subscribe(term()) :: term()
   @callback send_request(term(), term()) :: term()
+  @callback end_stream(term()) :: term()
   @callback recv(term()) :: {:ok, Enumerable.t()} | {:error, term()}
   @callback capabilities(term(), term()) :: {:ok, term()} | {:error, term()}
   @callback capabilities(term(), term(), keyword()) :: {:ok, term()} | {:error, term()}
@@ -27,7 +28,10 @@ defmodule SwitchTelemetry.Collector.DefaultGrpcClient do
   def send_request(stream, request), do: GRPC.Stub.send_request(stream, request)
 
   @impl true
-  def recv(stream), do: GRPC.Stub.recv(stream)
+  def end_stream(stream), do: GRPC.Stub.end_stream(stream)
+
+  @impl true
+  def recv(stream), do: GRPC.Stub.recv(stream, timeout: :infinity)
 
   @impl true
   def capabilities(channel, request), do: Gnmi.GNMI.Stub.capabilities(channel, request)
