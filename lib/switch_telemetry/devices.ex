@@ -78,6 +78,21 @@ defmodule SwitchTelemetry.Devices do
     |> Repo.preload(:subscriptions)
   end
 
+  @doc """
+  Returns the default gNMI encoding for a given platform.
+  """
+  @spec default_gnmi_encoding(atom() | String.t()) :: :proto | :json_ietf
+  def default_gnmi_encoding(platform) when is_atom(platform),
+    do: default_gnmi_encoding(to_string(platform))
+
+  def default_gnmi_encoding("cisco_iosxr"), do: :proto
+  def default_gnmi_encoding("cisco_iosxe"), do: :json_ietf
+  def default_gnmi_encoding("cisco_nxos"), do: :json_ietf
+  def default_gnmi_encoding("juniper_junos"), do: :proto
+  def default_gnmi_encoding("arista_eos"), do: :json_ietf
+  def default_gnmi_encoding("nokia_sros"), do: :json_ietf
+  def default_gnmi_encoding(_), do: :proto
+
   # --- Credentials ---
 
   @spec list_credentials() :: [Credential.t()]

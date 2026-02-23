@@ -23,6 +23,10 @@ defmodule SwitchTelemetry.Devices.Device do
       values: [:insecure, :tls_skip_verify, :tls_verified, :mtls],
       default: :insecure
 
+    field :gnmi_encoding, Ecto.Enum,
+      values: [:proto, :json, :json_ietf],
+      default: :proto
+
     field :tags, :map, default: %{}
     field :collection_interval_ms, :integer, default: 30_000
 
@@ -41,7 +45,7 @@ defmodule SwitchTelemetry.Devices.Device do
   end
 
   @required_fields ~w(id hostname ip_address platform transport)a
-  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at secure_mode model)a
+  @optional_fields ~w(gnmi_port netconf_port credential_id tags collection_interval_ms status assigned_collector collector_heartbeat last_seen_at secure_mode gnmi_encoding model)a
 
   @spec changeset(t(), map()) :: Ecto.Changeset.t()
   def changeset(device, attrs) do

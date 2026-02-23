@@ -59,6 +59,14 @@ defmodule SwitchTelemetryWeb.DeviceLive.Index do
       device_params
       |> Map.put("id", socket.assigns.device.id)
       |> Map.put("transport", Map.get(device_params, "transport", "gnmi"))
+      |> then(fn params ->
+        if Map.get(params, "gnmi_encoding", "") == "" do
+          encoding = Devices.default_gnmi_encoding(params["platform"])
+          Map.put(params, "gnmi_encoding", to_string(encoding))
+        else
+          params
+        end
+      end)
 
     case Devices.create_device(device_params) do
       {:ok, _device} ->

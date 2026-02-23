@@ -85,13 +85,15 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       "gNMI subscribing for #{state.device.hostname}: #{length(subscriptions)} subscription paths"
     )
 
+    encoding = encoding_to_gnmi(state.device.gnmi_encoding)
+
     subscribe_request = %Gnmi.SubscribeRequest{
       request:
         {:subscribe,
          %Gnmi.SubscriptionList{
            subscription: subscriptions,
            mode: :STREAM,
-           encoding: :PROTO
+           encoding: encoding
          }}
     }
 
@@ -222,14 +224,57 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   defp extract_float(%Gnmi.TypedValue{value: {:double_val, v}}), do: v
   defp extract_float(%Gnmi.TypedValue{value: {:float_val, v}}), do: v
+
+  defp extract_float(%Gnmi.TypedValue{value: {encoding, bytes}})
+       when encoding in [:json_ietf_val, :json_val] do
+    case decode_json_value(bytes) do
+      v when is_float(v) -> v
+      v when is_integer(v) -> v / 1
+      _ -> nil
+    end
+  end
+
   defp extract_float(_), do: nil
 
   defp extract_int(%Gnmi.TypedValue{value: {:int_val, v}}), do: v
   defp extract_int(%Gnmi.TypedValue{value: {:uint_val, v}}), do: v
+
+  defp extract_int(%Gnmi.TypedValue{value: {encoding, bytes}})
+       when encoding in [:json_ietf_val, :json_val] do
+    case decode_json_value(bytes) do
+      v when is_integer(v) -> v
+      _ -> nil
+    end
+  end
+
   defp extract_int(_), do: nil
 
   defp extract_str(%Gnmi.TypedValue{value: {:string_val, v}}), do: v
+
+  defp extract_str(%Gnmi.TypedValue{value: {encoding, bytes}})
+       when encoding in [:json_ietf_val, :json_val] do
+    case decode_json_value(bytes) do
+      v when is_binary(v) -> v
+      v when is_map(v) -> Jason.encode!(v)
+      _ -> nil
+    end
+  end
+
   defp extract_str(_), do: nil
+
+  defp decode_json_value(bytes) when is_binary(bytes) do
+    case Jason.decode(bytes) do
+      {:ok, val} -> val
+      {:error, _} -> nil
+    end
+  end
+
+  defp decode_json_value(_), do: nil
+
+  defp encoding_to_gnmi(:json_ietf), do: :JSON_IETF
+  defp encoding_to_gnmi(:json), do: :JSON
+  defp encoding_to_gnmi(:proto), do: :PROTO
+  defp encoding_to_gnmi(_), do: :PROTO
 
   defp build_subscriptions(device) do
     import Ecto.Query

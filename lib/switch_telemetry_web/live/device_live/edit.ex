@@ -26,6 +26,14 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
   @spec handle_event(String.t(), map(), Phoenix.LiveView.Socket.t()) ::
           {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_event("validate", %{"device" => device_params}, socket) do
+    device_params =
+      if Map.get(device_params, "_target") == ["device", "platform"] do
+        encoding = Devices.default_gnmi_encoding(device_params["platform"])
+        Map.put(device_params, "gnmi_encoding", to_string(encoding))
+      else
+        device_params
+      end
+
     changeset =
       socket.assigns.device
       |> Devices.change_device(device_params)
@@ -179,6 +187,17 @@ defmodule SwitchTelemetryWeb.DeviceLive.Edit do
                 {"TLS (skip verify)", "tls_skip_verify"},
                 {"TLS (verified)", "tls_verified"},
                 {"Mutual TLS (mTLS)", "mtls"}
+              ]}
+            />
+
+            <.input
+              field={@form[:gnmi_encoding]}
+              type="select"
+              label="gNMI Encoding"
+              options={[
+                {"Protobuf", "proto"},
+                {"JSON", "json"},
+                {"JSON IETF", "json_ietf"}
               ]}
             />
 
