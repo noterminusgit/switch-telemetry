@@ -14,7 +14,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   require Logger
 
   alias SwitchTelemetry.{Devices, Metrics}
-  alias SwitchTelemetry.Collector.{Subscription, TlsHelper}
+  alias SwitchTelemetry.Collector.{StreamMonitor, Subscription, TlsHelper}
 
   @max_retry_delay :timer.minutes(5)
   @base_retry_delay :timer.seconds(5)
@@ -64,6 +64,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
           last_seen_at: DateTime.utc_now()
         })
 
+        StreamMonitor.report_connected(state.device.id, :gnmi)
         send(self(), :subscribe)
         {:noreply, %{state | channel: channel, retry_count: 0, credential: credential}}
 
@@ -71,6 +72,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         Logger.warning("gNMI connection to #{state.device.hostname} failed: #{inspect(reason)}")
 
         Devices.update_device(state.device, %{status: :unreachable})
+        StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
         schedule_retry(state)
         {:noreply, %{state | retry_count: state.retry_count + 1}}
     end
@@ -101,6 +103,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def handle_info({ref, :stream_ended}, %{task_ref: ref} = state) do
     Process.demonitor(ref, [:flush])
     Logger.warning("gNMI stream ended for #{state.device.hostname}, reconnecting")
+    StreamMonitor.report_disconnected(state.device.id, :gnmi, :stream_ended)
     schedule_retry(state)
     {:noreply, %{state | stream: nil, task_ref: nil}}
   end
@@ -108,7 +111,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # Stream task crashed
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
     Logger.error("gNMI stream task crashed for #{state.device.hostname}: #{inspect(reason)}")
-
+    StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
     schedule_retry(state)
     {:noreply, %{state | stream: nil, task_ref: nil}}
   end
@@ -117,6 +120,8 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   @impl true
   def terminate(_reason, state) do
+    StreamMonitor.report_disconnected(state.device.id, :gnmi, :terminated)
+
     if state.channel do
       grpc_client().disconnect(state.channel)
     end
@@ -142,6 +147,8 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
                 "device:#{device.id}",
                 {:gnmi_metrics, device.id, metrics}
               )
+
+              StreamMonitor.report_message(device.id, :gnmi)
             end
 
           {:ok, %Gnmi.SubscribeResponse{response: {:sync_response, true}}} ->
@@ -149,6 +156,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
           {:error, reason} ->
             Logger.error("gNMI stream error for #{device.hostname}: #{inspect(reason)}")
+            StreamMonitor.report_error(device.id, :gnmi, reason)
         end)
         |> Stream.run()
 

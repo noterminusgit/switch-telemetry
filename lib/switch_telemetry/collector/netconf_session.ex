@@ -11,7 +11,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   import SweetXml
 
   alias SwitchTelemetry.{Devices, Metrics}
-  alias SwitchTelemetry.Collector.Subscription
+  alias SwitchTelemetry.Collector.{StreamMonitor, Subscription}
 
   @framing_end "]]>]]>"
   @connect_timeout 10_000
@@ -91,6 +91,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
         last_seen_at: DateTime.utc_now()
       })
 
+      StreamMonitor.report_connected(device.id, :netconf)
       interval = device.collection_interval_ms || 30_000
       {:ok, timer_ref} = :timer.send_interval(interval, :collect)
 
@@ -99,6 +100,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       error ->
         Logger.error("NETCONF connection to #{device.hostname} failed: #{inspect(error)}")
         Devices.update_device(device, %{status: :unreachable})
+        StreamMonitor.report_disconnected(device.id, :netconf, error)
         Process.send_after(self(), :connect, 10_000)
         {:noreply, state}
     end
@@ -133,6 +135,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   def handle_info({:ssh_cm, _ref, {:closed, _channel}}, state) do
     Logger.warning("NETCONF session closed for #{state.device.hostname}, reconnecting")
+    StreamMonitor.report_disconnected(state.device.id, :netconf, :channel_closed)
     cleanup_ssh(state)
     Process.send_after(self(), :connect, 5_000)
     {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: ""}}
@@ -150,6 +153,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   @impl true
   def terminate(_reason, state) do
+    StreamMonitor.report_disconnected(state.device.id, :netconf, :terminated)
     cleanup_ssh(state)
     :ok
   end
@@ -181,10 +185,13 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
         "device:#{device.id}",
         {:netconf_metrics, device.id, metrics}
       )
+
+      StreamMonitor.report_message(device.id, :netconf)
     end
   rescue
     e ->
       Logger.error("NETCONF parse error for #{device.hostname}: #{inspect(e)}")
+      StreamMonitor.report_error(device.id, :netconf, e)
   end
 
   defp parse_netconf_response(xml, device) do
