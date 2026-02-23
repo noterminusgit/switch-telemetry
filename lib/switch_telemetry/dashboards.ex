@@ -3,6 +3,7 @@ defmodule SwitchTelemetry.Dashboards do
   Context for managing user dashboards and widgets.
   """
   import Ecto.Query
+  require Logger
 
   alias SwitchTelemetry.Repo
   alias SwitchTelemetry.Collector.{Subscription, SubscriptionPaths}
@@ -153,10 +154,16 @@ defmodule SwitchTelemetry.Dashboards do
   def list_paths_for_device(device_id) do
     case Repo.get(Device, device_id) do
       nil ->
+        Logger.debug("list_paths_for_device(#{device_id}): device not found")
         []
 
       device ->
         subscribed_paths = get_subscribed_paths(device_id)
+
+        Logger.debug(
+          "list_paths_for_device(#{device_id}): device=#{device.hostname}, " <>
+            "platform=#{device.platform}, subscribed_paths=#{inspect(subscribed_paths)}"
+        )
 
         if subscribed_paths == [] do
           []

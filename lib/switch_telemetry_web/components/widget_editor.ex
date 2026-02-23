@@ -7,6 +7,7 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
   series builder) via component assigns with phx-click events.
   """
   use SwitchTelemetryWeb, :live_component
+  require Logger
 
   alias SwitchTelemetry.Dashboards
   alias SwitchTelemetry.Dashboards.Widget
@@ -153,6 +154,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
     index = String.to_integer(index_str)
     device_id = params["device_id"] || ""
 
+    Logger.debug("WidgetEditor select_device: index=#{index}, device_id=#{inspect(device_id)}")
+
     queries =
       List.update_at(socket.assigns.queries, index, fn query ->
         query
@@ -162,11 +165,14 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
 
     path_options_map =
       if device_id != "" do
-        Map.put(
-          socket.assigns.path_options_map,
-          index,
-          Dashboards.list_paths_for_device(device_id)
+        paths = Dashboards.list_paths_for_device(device_id)
+
+        Logger.debug(
+          "WidgetEditor select_device: path_count=#{length(paths)}, " <>
+            "categories=#{inspect(Enum.map(paths, &elem(&1, 0)))}"
         )
+
+        Map.put(socket.assigns.path_options_map, index, paths)
       else
         Map.delete(socket.assigns.path_options_map, index)
       end

@@ -69,8 +69,13 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
   @impl true
   def handle_info(:start_assigned_devices, state) do
     collector_node = Atom.to_string(Node.self())
+    Logger.info("DeviceManager: collector_node=#{collector_node}, self=#{Node.self()}")
 
     devices = Devices.list_devices_for_collector(collector_node)
+
+    Logger.info(
+      "DeviceManager: found #{length(devices)} assigned devices: #{inspect(Enum.map(devices, & &1.hostname))}"
+    )
 
     sessions =
       Enum.reduce(devices, state.sessions, fn device, acc ->

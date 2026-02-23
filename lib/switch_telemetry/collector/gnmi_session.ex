@@ -81,6 +81,10 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def handle_info(:subscribe, state) do
     subscriptions = build_subscriptions(state.device)
 
+    Logger.info(
+      "gNMI subscribing for #{state.device.hostname}: #{length(subscriptions)} subscription paths"
+    )
+
     subscribe_request = %Gnmi.SubscribeRequest{
       request:
         {:subscribe,
