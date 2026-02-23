@@ -273,8 +273,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
       # Select the device
       html =
         view
-        |> element("select[name=device_id]")
-        |> render_change(%{"device_id" => device.id, "index" => "0"})
+        |> element(~s(select[name="select_device[0]"]))
+        |> render_change(%{"select_device" => %{"0" => device.id}})
 
       # Path dropdown should now be enabled with "Select a metric path..."
       assert html =~ "Select a metric path..."
@@ -289,8 +289,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
 
       html =
         view
-        |> element("select[name=device_id]")
-        |> render_change(%{"device_id" => device.id, "index" => "0"})
+        |> element(~s(select[name="select_device[0]"]))
+        |> render_change(%{"select_device" => %{"0" => device.id}})
 
       # Should show subscribed paths in the path dropdown
       assert html =~ "/interfaces/interface/state/counters"
@@ -306,14 +306,14 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
 
       # First select device to load paths
       view
-      |> element("select[name=device_id]")
-      |> render_change(%{"device_id" => device.id, "index" => "0"})
+      |> element(~s(select[name="select_device[0]"]))
+      |> render_change(%{"select_device" => %{"0" => device.id}})
 
       # Then select a path
       html =
         view
-        |> element("select[name=path]")
-        |> render_change(%{"path" => "/interfaces/interface/state/counters", "index" => "0"})
+        |> element(~s(select[name="select_path[0]"]))
+        |> render_change(%{"select_path" => %{"0" => "/interfaces/interface/state/counters"}})
 
       assert html =~ "/interfaces/interface/state/counters"
     end
@@ -327,18 +327,18 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
 
       # Select device and path
       view
-      |> element("select[name=device_id]")
-      |> render_change(%{"device_id" => device.id, "index" => "0"})
+      |> element(~s(select[name="select_device[0]"]))
+      |> render_change(%{"select_device" => %{"0" => device.id}})
 
       view
-      |> element("select[name=path]")
-      |> render_change(%{"path" => "/interfaces/interface/state/counters", "index" => "0"})
+      |> element(~s(select[name="select_path[0]"]))
+      |> render_change(%{"select_path" => %{"0" => "/interfaces/interface/state/counters"}})
 
       # Now reset by selecting empty device
       html =
         view
-        |> element("select[name=device_id]")
-        |> render_change(%{"device_id" => "", "index" => "0"})
+        |> element(~s(select[name="select_device[0]"]))
+        |> render_change(%{"select_device" => %{"0" => ""}})
 
       # Path dropdown should go back to disabled state
       assert html =~ "Select a device first..."

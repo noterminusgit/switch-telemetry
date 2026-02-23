@@ -150,9 +150,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
     {:noreply, assign(socket, queries: queries, path_options_map: path_options_map)}
   end
 
-  def handle_event("select_device", %{"index" => index_str} = params, socket) do
-    index = String.to_integer(index_str)
-    device_id = params["device_id"] || ""
+  def handle_event("select_device", %{"select_device" => _} = params, socket) do
+    {index, device_id} = extract_indexed_param(params, "select_device")
 
     Logger.debug("WidgetEditor select_device: index=#{index}, device_id=#{inspect(device_id)}")
 
@@ -180,9 +179,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
     {:noreply, assign(socket, queries: queries, path_options_map: path_options_map)}
   end
 
-  def handle_event("select_path", %{"index" => index_str} = params, socket) do
-    index = String.to_integer(index_str)
-    path = params["path"] || ""
+  def handle_event("select_path", %{"select_path" => _} = params, socket) do
+    {index, path} = extract_indexed_param(params, "select_path")
 
     queries =
       List.update_at(socket.assigns.queries, index, fn query ->
@@ -192,8 +190,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
     {:noreply, assign(socket, queries: queries)}
   end
 
-  def handle_event("update_color", %{"index" => index_str, "color" => color}, socket) do
-    index = String.to_integer(index_str)
+  def handle_event("update_color", %{"update_color" => _} = params, socket) do
+    {index, color} = extract_indexed_param(params, "update_color")
 
     queries =
       List.update_at(socket.assigns.queries, index, fn query ->
@@ -284,9 +282,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
                 <label class="block text-xs font-medium text-gray-600 mb-1">Device</label>
                 <select
                   phx-change="select_device"
-                  phx-value-index={index}
                   phx-target={@myself}
-                  name="device_id"
+                  name={"select_device[#{index}]"}
                   class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
                 >
                   <option value="">Select a device...</option>
@@ -306,9 +303,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
                 <label class="block text-xs font-medium text-gray-600 mb-1">Metric Path</label>
                 <select
                   phx-change="select_path"
-                  phx-value-index={index}
                   phx-target={@myself}
-                  name="path"
+                  name={"select_path[#{index}]"}
                   disabled={!Map.has_key?(@path_options_map, index)}
                   class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
                 >
@@ -351,9 +347,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
                     type="color"
                     value={query["color"] || "#3B82F6"}
                     phx-change="update_color"
-                    phx-value-index={index}
                     phx-target={@myself}
-                    name="color"
+                    name={"update_color[#{index}]"}
                     class="h-[34px] w-10 rounded border border-gray-300 cursor-pointer p-0.5"
                   />
                   <input
@@ -406,6 +401,18 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
   defp get_time_range_duration(%{"duration" => duration}), do: duration
   defp get_time_range_duration(%{duration: duration}), do: duration
   defp get_time_range_duration(_), do: "1h"
+
+  defp extract_indexed_param(params, key) do
+    data = params[key]
+
+    index_str =
+      case params do
+        %{"_target" => [^key, idx]} -> idx
+        _ -> data |> Map.keys() |> hd()
+      end
+
+    {String.to_integer(index_str), Map.get(data, index_str, "")}
+  end
 
   defp generate_widget_id do
     "wgt_" <> Base.encode32(:crypto.strong_rand_bytes(15), case: :lower, padding: false)
