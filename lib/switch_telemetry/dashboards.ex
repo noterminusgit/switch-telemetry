@@ -5,7 +5,9 @@ defmodule SwitchTelemetry.Dashboards do
   import Ecto.Query
 
   alias SwitchTelemetry.Repo
+  alias SwitchTelemetry.Collector.{Subscription, SubscriptionPaths}
   alias SwitchTelemetry.Dashboards.{Dashboard, Widget}
+  alias SwitchTelemetry.Devices.Device
 
   @spec list_dashboards() :: [Dashboard.t()]
   def list_dashboards do
@@ -117,24 +119,91 @@ defmodule SwitchTelemetry.Dashboards do
   @doc "Returns device options [{hostname, id}] for widget query builder."
   @spec list_device_options() :: [{String.t(), String.t()}]
   def list_device_options do
-    from(d in SwitchTelemetry.Devices.Device,
+    from(d in Device,
       select: {d.hostname, d.id},
       order_by: d.hostname
     )
     |> Repo.all()
   end
 
-  @doc "Returns distinct metric paths seen for a device."
-  @spec list_device_metric_paths(String.t()) :: [String.t()]
-  def list_device_metric_paths(device_id) do
-    from(m in "metrics",
-      where: m.device_id == ^device_id,
-      distinct: true,
-      select: m.path,
-      order_by: m.path,
-      limit: 500
+  @doc """
+  Returns devices grouped by platform for `<optgroup>` rendering in widget picker.
+
+  Returns `[{platform_label, [{hostname, id}]}]` sorted alphabetically by platform.
+  """
+  @spec list_devices_for_widget_picker() :: [{String.t(), [{String.t(), String.t()}]}]
+  def list_devices_for_widget_picker do
+    from(d in Device,
+      select: {d.platform, d.hostname, d.id},
+      order_by: [d.platform, d.hostname]
     )
     |> Repo.all()
+    |> Enum.group_by(&elem(&1, 0), fn {_platform, hostname, id} -> {hostname, id} end)
+    |> Enum.map(fn {platform, devices} -> {format_platform(platform), devices} end)
+    |> Enum.sort_by(&elem(&1, 0))
+  end
+
+  @doc """
+  Returns metric paths grouped by category for a device's enabled subscriptions.
+
+  Returns `[{category_label, [{path, path}]}]` sorted alphabetically by category.
+  Returns `[]` if the device doesn't exist or has no enabled subscriptions.
+  """
+  @spec list_paths_for_device(String.t()) :: [{String.t(), [{String.t(), String.t()}]}]
+  def list_paths_for_device(device_id) do
+    case Repo.get(Device, device_id) do
+      nil ->
+        []
+
+      device ->
+        subscribed_paths = get_subscribed_paths(device_id)
+
+        if subscribed_paths == [] do
+          []
+        else
+          known_paths = SubscriptionPaths.list_paths(device.platform, device.model)
+          category_map = Map.new(known_paths, fn entry -> {entry.path, entry.category} end)
+
+          subscribed_paths
+          |> Enum.map(fn path ->
+            category = Map.get(category_map, path, "other")
+            {category, path}
+          end)
+          |> Enum.group_by(&elem(&1, 0), fn {_cat, path} -> {path, path} end)
+          |> Enum.map(fn {category, paths} ->
+            {humanize_category(category), Enum.sort(paths)}
+          end)
+          |> Enum.sort_by(&elem(&1, 0))
+        end
+    end
+  end
+
+  defp get_subscribed_paths(device_id) do
+    from(s in Subscription,
+      where: s.device_id == ^device_id and s.enabled == true,
+      select: s.paths
+    )
+    |> Repo.all()
+    |> List.flatten()
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp format_platform(:cisco_iosxr), do: "Cisco IOS-XR"
+  defp format_platform(:cisco_iosxe), do: "Cisco IOS-XE"
+  defp format_platform(:cisco_nxos), do: "Cisco NX-OS"
+  defp format_platform(:juniper_junos), do: "Juniper Junos"
+  defp format_platform(:arista_eos), do: "Arista EOS"
+  defp format_platform(:nokia_sros), do: "Nokia SR OS"
+
+  defp format_platform(other),
+    do: other |> to_string() |> String.replace("_", " ") |> String.capitalize()
+
+  defp humanize_category(category) do
+    category
+    |> String.replace("_", " ")
+    |> String.split(" ")
+    |> Enum.map_join(" ", &String.capitalize/1)
   end
 
   @doc "Returns a changeset for dashboard editing."

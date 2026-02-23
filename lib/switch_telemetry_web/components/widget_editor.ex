@@ -37,6 +37,21 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
         "1h"
       end
 
+    device_options = Dashboards.list_devices_for_widget_picker()
+
+    path_options_map =
+      queries
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {query, index}, acc ->
+        device_id = query["device_id"]
+
+        if device_id && device_id != "" do
+          Map.put(acc, index, Dashboards.list_paths_for_device(device_id))
+        else
+          acc
+        end
+      end)
+
     socket =
       socket
       |> assign(assigns)
@@ -44,7 +59,9 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
         form: to_form(changeset),
         queries: queries,
         time_range_value: time_range_value,
-        action: action
+        action: action,
+        device_options: device_options,
+        path_options_map: path_options_map
       )
 
     {:ok, socket}
@@ -111,8 +128,71 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
   def handle_event("remove_query", %{"index" => index_str}, socket) do
     index = String.to_integer(index_str)
     queries = List.delete_at(socket.assigns.queries, index)
-
     queries = if queries == [], do: [empty_query()], else: queries
+
+    # Re-index path_options_map after removal
+    old_map = socket.assigns.path_options_map
+
+    path_options_map =
+      queries
+      |> Enum.with_index()
+      |> Enum.reduce(%{}, fn {_query, new_idx}, acc ->
+        # After removing index, items at old positions shift down
+        old_idx = if new_idx >= index, do: new_idx + 1, else: new_idx
+
+        case Map.get(old_map, old_idx) do
+          nil -> acc
+          paths -> Map.put(acc, new_idx, paths)
+        end
+      end)
+
+    {:noreply, assign(socket, queries: queries, path_options_map: path_options_map)}
+  end
+
+  def handle_event("select_device", %{"index" => index_str} = params, socket) do
+    index = String.to_integer(index_str)
+    device_id = params["device_id"] || ""
+
+    queries =
+      List.update_at(socket.assigns.queries, index, fn query ->
+        query
+        |> Map.put("device_id", device_id)
+        |> Map.put("path", "")
+      end)
+
+    path_options_map =
+      if device_id != "" do
+        Map.put(
+          socket.assigns.path_options_map,
+          index,
+          Dashboards.list_paths_for_device(device_id)
+        )
+      else
+        Map.delete(socket.assigns.path_options_map, index)
+      end
+
+    {:noreply, assign(socket, queries: queries, path_options_map: path_options_map)}
+  end
+
+  def handle_event("select_path", %{"index" => index_str} = params, socket) do
+    index = String.to_integer(index_str)
+    path = params["path"] || ""
+
+    queries =
+      List.update_at(socket.assigns.queries, index, fn query ->
+        Map.put(query, "path", path)
+      end)
+
+    {:noreply, assign(socket, queries: queries)}
+  end
+
+  def handle_event("update_color", %{"index" => index_str, "color" => color}, socket) do
+    index = String.to_integer(index_str)
+
+    queries =
+      List.update_at(socket.assigns.queries, index, fn query ->
+        Map.put(query, "color", color)
+      end)
 
     {:noreply, assign(socket, queries: queries)}
   end
@@ -196,30 +276,52 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
             <div class="grid grid-cols-2 gap-3">
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Device</label>
-                <input
-                  type="text"
-                  value={query["device_id"] || ""}
-                  phx-blur="update_query"
+                <select
+                  phx-change="select_device"
                   phx-value-index={index}
-                  phx-value-field="device_id"
                   phx-target={@myself}
-                  placeholder="Device ID"
+                  name="device_id"
                   class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-                />
+                >
+                  <option value="">Select a device...</option>
+                  <optgroup :for={{platform_label, devices} <- @device_options} label={platform_label}>
+                    <option
+                      :for={{hostname, id} <- devices}
+                      value={id}
+                      selected={query["device_id"] == id}
+                    >
+                      {hostname}
+                    </option>
+                  </optgroup>
+                </select>
               </div>
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Metric Path</label>
-                <input
-                  type="text"
-                  value={query["path"] || ""}
-                  phx-blur="update_query"
+                <select
+                  phx-change="select_path"
                   phx-value-index={index}
-                  phx-value-field="path"
                   phx-target={@myself}
-                  placeholder="/interfaces/interface/state/counters"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-                />
+                  name="path"
+                  disabled={!Map.has_key?(@path_options_map, index)}
+                  class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:bg-gray-100 disabled:text-gray-400"
+                >
+                  <option value="">
+                    {if Map.has_key?(@path_options_map, index), do: "Select a metric path...", else: "Select a device first..."}
+                  </option>
+                  <optgroup
+                    :for={{category_label, paths} <- Map.get(@path_options_map, index, [])}
+                    label={category_label}
+                  >
+                    <option
+                      :for={{path_label, path_value} <- paths}
+                      value={path_value}
+                      selected={query["path"] == path_value}
+                    >
+                      {path_label}
+                    </option>
+                  </optgroup>
+                </select>
               </div>
 
               <div>
@@ -238,16 +340,27 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditor do
 
               <div>
                 <label class="block text-xs font-medium text-gray-600 mb-1">Color</label>
-                <input
-                  type="text"
-                  value={query["color"] || "#3B82F6"}
-                  phx-blur="update_query"
-                  phx-value-index={index}
-                  phx-value-field="color"
-                  phx-target={@myself}
-                  placeholder="#3B82F6"
-                  class="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
-                />
+                <div class="flex gap-2">
+                  <input
+                    type="color"
+                    value={query["color"] || "#3B82F6"}
+                    phx-change="update_color"
+                    phx-value-index={index}
+                    phx-target={@myself}
+                    name="color"
+                    class="h-[34px] w-10 rounded border border-gray-300 cursor-pointer p-0.5"
+                  />
+                  <input
+                    type="text"
+                    value={query["color"] || "#3B82F6"}
+                    phx-blur="update_query"
+                    phx-value-index={index}
+                    phx-value-field="color"
+                    phx-target={@myself}
+                    placeholder="#3B82F6"
+                    class="flex-1 rounded-lg border border-gray-300 px-3 py-1.5 text-sm"
+                  />
+                </div>
               </div>
             </div>
           </div>

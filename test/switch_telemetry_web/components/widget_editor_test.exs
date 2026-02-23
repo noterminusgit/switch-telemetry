@@ -44,6 +44,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
   import Phoenix.LiveViewTest
 
   alias SwitchTelemetry.Dashboards
+  alias SwitchTelemetry.Devices.Device
+  alias SwitchTelemetry.Collector.Subscription
   alias SwitchTelemetryWeb.Components.WidgetEditorTestLive
 
   setup :register_and_log_in_user
@@ -52,10 +54,35 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
     {:ok, dashboard} =
       Dashboards.create_dashboard(%{
         id: "dash_we_#{System.unique_integer([:positive])}",
-        name: "Widget Editor Test"
+        name: "Widget Editor Test #{System.unique_integer([:positive])}"
       })
 
-    %{conn: conn, dashboard: dashboard}
+    # Create test devices for the select dropdowns
+    device =
+      %Device{}
+      |> Device.changeset(%{
+        id: "dev_we_#{System.unique_integer([:positive])}",
+        hostname: "test-router.example.com",
+        ip_address: "10.0.0.1",
+        platform: :cisco_iosxr,
+        transport: :gnmi
+      })
+      |> SwitchTelemetry.Repo.insert!()
+
+    # Create a subscription with paths for the device
+    %Subscription{}
+    |> Subscription.changeset(%{
+      id: "sub_we_#{System.unique_integer([:positive])}",
+      device_id: device.id,
+      paths: [
+        "/interfaces/interface/state/counters",
+        "/system/state/hostname"
+      ],
+      enabled: true
+    })
+    |> SwitchTelemetry.Repo.insert!()
+
+    %{conn: conn, dashboard: dashboard, device: device}
   end
 
   defp render_editor(conn, dashboard, opts \\ []) do
@@ -106,7 +133,8 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
       {_view, html} = render_editor(conn, dashboard)
       assert html =~ "Series 1"
       assert html =~ "Device"
-      assert html =~ "Metric Path"
+      assert html =~ "Select a device..."
+      assert html =~ "Select a device first..."
       assert html =~ "Label"
       assert html =~ "Color"
     end
@@ -230,30 +258,94 @@ defmodule SwitchTelemetryWeb.Components.WidgetEditorTest do
     end
   end
 
+  describe "device and path selection" do
+    test "select_device updates device_id and shows device in dropdown", %{
+      conn: conn,
+      dashboard: dashboard,
+      device: device
+    } do
+      {view, html} = render_editor(conn, dashboard)
+
+      # Device should appear in the select dropdown
+      assert html =~ "test-router.example.com"
+      assert html =~ "Cisco IOS-XR"
+
+      # Select the device
+      html =
+        view
+        |> element("select[name=device_id]")
+        |> render_change(%{"device_id" => device.id, "index" => "0"})
+
+      # Path dropdown should now be enabled with "Select a metric path..."
+      assert html =~ "Select a metric path..."
+    end
+
+    test "select_device loads paths for the selected device", %{
+      conn: conn,
+      dashboard: dashboard,
+      device: device
+    } do
+      {view, _html} = render_editor(conn, dashboard)
+
+      html =
+        view
+        |> element("select[name=device_id]")
+        |> render_change(%{"device_id" => device.id, "index" => "0"})
+
+      # Should show subscribed paths in the path dropdown
+      assert html =~ "/interfaces/interface/state/counters"
+      assert html =~ "/system/state/hostname"
+    end
+
+    test "select_path updates path in query", %{
+      conn: conn,
+      dashboard: dashboard,
+      device: device
+    } do
+      {view, _html} = render_editor(conn, dashboard)
+
+      # First select device to load paths
+      view
+      |> element("select[name=device_id]")
+      |> render_change(%{"device_id" => device.id, "index" => "0"})
+
+      # Then select a path
+      html =
+        view
+        |> element("select[name=path]")
+        |> render_change(%{"path" => "/interfaces/interface/state/counters", "index" => "0"})
+
+      assert html =~ "/interfaces/interface/state/counters"
+    end
+
+    test "select_device resets path when device changes", %{
+      conn: conn,
+      dashboard: dashboard,
+      device: device
+    } do
+      {view, _html} = render_editor(conn, dashboard)
+
+      # Select device and path
+      view
+      |> element("select[name=device_id]")
+      |> render_change(%{"device_id" => device.id, "index" => "0"})
+
+      view
+      |> element("select[name=path]")
+      |> render_change(%{"path" => "/interfaces/interface/state/counters", "index" => "0"})
+
+      # Now reset by selecting empty device
+      html =
+        view
+        |> element("select[name=device_id]")
+        |> render_change(%{"device_id" => "", "index" => "0"})
+
+      # Path dropdown should go back to disabled state
+      assert html =~ "Select a device first..."
+    end
+  end
+
   describe "update_query event" do
-    test "update_query updates a query field at given index", %{conn: conn, dashboard: dashboard} do
-      {view, _html} = render_editor(conn, dashboard)
-
-      # Update the device_id of the first query
-      view
-      |> element("input[phx-value-field=device_id]")
-      |> render_blur(%{"index" => "0", "field" => "device_id", "value" => "dev-123"})
-
-      html = render(view)
-      assert html =~ "dev-123"
-    end
-
-    test "update_query updates the path field", %{conn: conn, dashboard: dashboard} do
-      {view, _html} = render_editor(conn, dashboard)
-
-      view
-      |> element("input[phx-value-field=path]")
-      |> render_blur(%{"index" => "0", "field" => "path", "value" => "/interfaces/counters"})
-
-      html = render(view)
-      assert html =~ "/interfaces/counters"
-    end
-
     test "update_query updates the label field", %{conn: conn, dashboard: dashboard} do
       {view, _html} = render_editor(conn, dashboard)
 

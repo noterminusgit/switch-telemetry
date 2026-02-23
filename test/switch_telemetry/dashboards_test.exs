@@ -2,6 +2,8 @@ defmodule SwitchTelemetry.DashboardsTest do
   use SwitchTelemetry.DataCase, async: true
 
   alias SwitchTelemetry.Dashboards
+  alias SwitchTelemetry.Devices.Device
+  alias SwitchTelemetry.Collector.Subscription
 
   defp valid_dashboard_attrs(overrides \\ %{}) do
     id = "dash_#{System.unique_integer([:positive])}"
@@ -10,6 +12,37 @@ defmodule SwitchTelemetry.DashboardsTest do
       %{id: id, name: "Dashboard #{id}"},
       overrides
     )
+  end
+
+  defp create_device(attrs \\ %{}) do
+    unique = System.unique_integer([:positive])
+
+    defaults = %{
+      id: "dev_#{unique}",
+      hostname: "router-#{unique}.example.com",
+      ip_address: "10.0.0.#{rem(unique, 254) + 1}",
+      platform: :cisco_iosxr,
+      transport: :gnmi
+    }
+
+    %Device{}
+    |> Device.changeset(Map.merge(defaults, attrs))
+    |> Repo.insert!()
+  end
+
+  defp create_subscription(device, attrs) do
+    unique = System.unique_integer([:positive])
+
+    defaults = %{
+      id: "sub_#{unique}",
+      device_id: device.id,
+      paths: ["/interfaces/interface/state/counters"],
+      enabled: true
+    }
+
+    %Subscription{}
+    |> Subscription.changeset(Map.merge(defaults, attrs))
+    |> Repo.insert!()
   end
 
   describe "list_dashboards/0" do
@@ -318,6 +351,138 @@ defmodule SwitchTelemetry.DashboardsTest do
       {:ok, w} = Dashboards.add_widget(d, %{id: "wgt_cs2", title: "CS2", chart_type: :bar})
       changeset = Dashboards.change_widget(w)
       assert %Ecto.Changeset{} = changeset
+    end
+  end
+
+  describe "list_devices_for_widget_picker/0" do
+    test "returns empty list when no devices exist" do
+      assert Dashboards.list_devices_for_widget_picker() == []
+    end
+
+    test "returns devices grouped by platform" do
+      create_device(%{hostname: "xr-router-1.example.com", platform: :cisco_iosxr})
+      create_device(%{hostname: "xr-router-2.example.com", platform: :cisco_iosxr})
+      create_device(%{hostname: "junos-sw-1.example.com", platform: :juniper_junos})
+
+      result = Dashboards.list_devices_for_widget_picker()
+
+      assert length(result) == 2
+
+      {xr_label, xr_devices} = Enum.find(result, fn {label, _} -> label == "Cisco IOS-XR" end)
+      assert xr_label == "Cisco IOS-XR"
+      assert length(xr_devices) == 2
+
+      {junos_label, junos_devices} =
+        Enum.find(result, fn {label, _} -> label == "Juniper Junos" end)
+
+      assert junos_label == "Juniper Junos"
+      assert length(junos_devices) == 1
+    end
+
+    test "sorts groups alphabetically by platform label" do
+      create_device(%{hostname: "junos-1.example.com", platform: :juniper_junos})
+      create_device(%{hostname: "arista-1.example.com", platform: :arista_eos})
+      create_device(%{hostname: "xr-1.example.com", platform: :cisco_iosxr})
+
+      result = Dashboards.list_devices_for_widget_picker()
+      labels = Enum.map(result, &elem(&1, 0))
+      assert labels == ["Arista EOS", "Cisco IOS-XR", "Juniper Junos"]
+    end
+
+    test "returns {hostname, id} tuples within each group" do
+      device = create_device(%{hostname: "test-router.example.com", platform: :cisco_iosxr})
+
+      [{_label, devices}] = Dashboards.list_devices_for_widget_picker()
+      assert [{hostname, id}] = devices
+      assert hostname == "test-router.example.com"
+      assert id == device.id
+    end
+  end
+
+  describe "list_paths_for_device/1" do
+    test "returns empty list for nonexistent device" do
+      assert Dashboards.list_paths_for_device("nonexistent") == []
+    end
+
+    test "returns empty list when device has no subscriptions" do
+      device = create_device()
+      assert Dashboards.list_paths_for_device(device.id) == []
+    end
+
+    test "returns paths grouped by category from enabled subscriptions" do
+      device = create_device(%{platform: :cisco_iosxr})
+
+      create_subscription(device, %{
+        paths: [
+          "/interfaces/interface/state/counters",
+          "/system/state/hostname"
+        ]
+      })
+
+      result = Dashboards.list_paths_for_device(device.id)
+
+      assert length(result) >= 1
+
+      # Each entry should be {category_label, [{path, path}]}
+      for {label, paths} <- result do
+        assert is_binary(label)
+        assert is_list(paths)
+
+        for {display, value} <- paths do
+          assert is_binary(display)
+          assert is_binary(value)
+          assert display == value
+        end
+      end
+    end
+
+    test "excludes paths from disabled subscriptions" do
+      device = create_device(%{platform: :cisco_iosxr})
+
+      create_subscription(device, %{
+        paths: ["/interfaces/interface/state/counters"],
+        enabled: true
+      })
+
+      create_subscription(device, %{
+        paths: ["/system/state/hostname"],
+        enabled: false
+      })
+
+      result = Dashboards.list_paths_for_device(device.id)
+      all_paths = Enum.flat_map(result, fn {_cat, paths} -> Enum.map(paths, &elem(&1, 1)) end)
+
+      assert "/interfaces/interface/state/counters" in all_paths
+      refute "/system/state/hostname" in all_paths
+    end
+
+    test "groups unknown paths under Other" do
+      device = create_device(%{platform: :cisco_iosxr})
+
+      create_subscription(device, %{
+        paths: ["/custom/vendor/specific/path"]
+      })
+
+      result = Dashboards.list_paths_for_device(device.id)
+      {label, paths} = Enum.find(result, fn {l, _} -> l == "Other" end)
+      assert label == "Other"
+      assert {"/custom/vendor/specific/path", "/custom/vendor/specific/path"} in paths
+    end
+
+    test "sorts groups alphabetically" do
+      device = create_device(%{platform: :cisco_iosxr})
+
+      create_subscription(device, %{
+        paths: [
+          "/system/state/hostname",
+          "/interfaces/interface/state/counters",
+          "/components/component/state"
+        ]
+      })
+
+      result = Dashboards.list_paths_for_device(device.id)
+      labels = Enum.map(result, &elem(&1, 0))
+      assert labels == Enum.sort(labels)
     end
   end
 end
