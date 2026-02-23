@@ -99,7 +99,6 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
     stream = grpc_client().subscribe(state.channel)
     grpc_client().send_request(stream, subscribe_request)
-    grpc_client().end_stream(stream)
 
     task = Task.async(fn -> read_stream(stream, state.device) end)
 
