@@ -27,7 +27,7 @@ defmodule SwitchTelemetry.Collector.DefaultGrpcClient do
   def send_request(stream, request), do: GRPC.Stub.send_request(stream, request)
 
   @impl true
-  def recv(stream), do: GRPC.Stub.recv(stream, timeout: :infinity)
+  def recv(stream), do: GRPC.Stub.recv(stream, timeout: :timer.seconds(3600))
 
   @impl true
   def capabilities(channel, request), do: Gnmi.GNMI.Stub.capabilities(channel, request)
