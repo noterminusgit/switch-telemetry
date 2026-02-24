@@ -202,6 +202,58 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     end
   end
 
+  @doc """
+  Query metrics where the path starts with the given prefix.
+  Returns results grouped by full path, each with :path and :data keys.
+  Useful for subscription paths which are prefixes of stored metric paths.
+  """
+  @spec query_by_prefix(String.t(), String.t(), Backend.time_range()) :: [map()]
+  def query_by_prefix(device_id, path_prefix, time_range) do
+    bucket = influx_config(:bucket)
+    duration_seconds = DateTime.diff(time_range.end, time_range.start)
+
+    flux_duration =
+      cond do
+        duration_seconds <= 3_600 -> "10s"
+        duration_seconds <= 86_400 -> "5m"
+        true -> "1h"
+      end
+
+    flux = """
+    import "strings"
+
+    from(bucket: "#{bucket}")
+      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
+      |> filter(fn: (r) => r._measurement == "metrics")
+      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
+      |> filter(fn: (r) => strings.hasPrefix(v: r.path, prefix: "#{escape_flux(path_prefix)}"))
+      |> filter(fn: (r) => r._field == "value_float")
+      |> aggregateWindow(every: #{flux_duration}, fn: mean, createEmpty: false)
+    """
+
+    case InfluxDB.query(flux) do
+      rows when is_list(rows) ->
+        rows
+        |> List.flatten()
+        |> Enum.group_by(fn row -> row["path"] end)
+        |> Enum.map(fn {path, path_rows} ->
+          data =
+            Enum.map(path_rows, fn row ->
+              %{bucket: parse_influx_time(row["_time"]), avg_value: row["_value"]}
+            end)
+
+          %{path: path, data: data}
+        end)
+
+      other ->
+        Logger.error(
+          "InfluxDB query_by_prefix failed for #{device_id}/#{path_prefix}: #{inspect(other)}"
+        )
+
+        []
+    end
+  end
+
   # Query a downsampled bucket (metrics_5m, metrics_1h)
   defp query_bucket(ds_bucket, device_id, path, flux_duration, time_range) do
     flux = """

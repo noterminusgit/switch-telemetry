@@ -30,6 +30,16 @@ defmodule SwitchTelemetry.Metrics.QueryRouter do
   end
 
   @doc """
+  Query metrics where the path starts with the given prefix.
+  Returns results grouped by full path: [%{path: String.t(), data: [%{bucket: DateTime.t(), avg_value: float()}]}].
+  """
+  @spec query_by_prefix(String.t(), String.t(), SwitchTelemetry.Metrics.Backend.time_range()) ::
+          [map()]
+  def query_by_prefix(device_id, path_prefix, time_range) do
+    backend().query_by_prefix(device_id, path_prefix, time_range)
+  end
+
+  @doc """
   Compute rate of change (per second) for counter metrics.
   """
   @spec query_rate(

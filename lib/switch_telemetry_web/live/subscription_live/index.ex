@@ -86,11 +86,17 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
     else
       time_range = resolve_time_range(socket.assigns.time_range)
 
-      series =
-        QueryRouter.query(socket.assigns.device.id, path, time_range)
-        |> Enum.map(fn row -> %{time: row.bucket, value: row.avg_value || 0.0} end)
+      chart_series =
+        QueryRouter.query_by_prefix(socket.assigns.device.id, path, time_range)
+        |> Enum.with_index()
+        |> Enum.map(fn {%{path: full_path, data: data}, idx} ->
+          %{
+            label: path_suffix(full_path, path),
+            color: series_color(idx),
+            data: Enum.map(data, fn row -> %{time: row.bucket, value: row.avg_value || 0.0} end)
+          }
+        end)
 
-      chart_series = [%{label: path, color: "#3B82F6", data: series}]
       {:noreply, assign(socket, expanded_path: key, chart_series: chart_series)}
     end
   end
@@ -236,6 +242,18 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
 
   defp expanded_for_sub?({sub_id, _path}, sub_id), do: true
   defp expanded_for_sub?(_, _), do: false
+
+  # Extract the distinguishing suffix from a full path relative to the subscription prefix
+  defp path_suffix(full_path, prefix) do
+    case String.replace_leading(full_path, prefix, "") do
+      "" -> full_path
+      "/" <> suffix -> suffix
+      suffix -> suffix
+    end
+  end
+
+  @series_colors ~w(#3B82F6 #EF4444 #10B981 #F59E0B #8B5CF6 #EC4899 #06B6D4 #84CC16)
+  defp series_color(idx), do: Enum.at(@series_colors, rem(idx, length(@series_colors)))
 
   defp resolve_time_range(%{"type" => "relative", "duration" => duration}) do
     now = DateTime.utc_now()
