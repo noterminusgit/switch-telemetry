@@ -3,14 +3,18 @@ import vegaEmbed from "vega-embed"
 const VegaLite = {
   mounted() {
     this.chartId = this.el.getAttribute("data-chart-id")
+    this._spec = null
+    this._resizeTimer = null
 
     // Listen for chart-specific update events
     this.handleEvent(`vega_lite:${this.chartId}:update`, ({ spec }) => {
+      this._spec = spec
       this.renderChart(spec)
     })
 
     // Legacy global event for backward compatibility
     this.handleEvent("vega_lite_spec", ({ spec }) => {
+      this._spec = spec
       this.renderChart(spec)
     })
 
@@ -18,6 +22,17 @@ const VegaLite = {
     this.handleEvent(`vega_lite:${this.chartId}:export_png`, ({ filename }) => {
       this.exportPng(filename || "chart.png")
     })
+
+    // ResizeObserver for responsive charts
+    if (this.el.dataset.responsive === "true") {
+      this._resizeObserver = new ResizeObserver(() => {
+        if (this._resizeTimer) clearTimeout(this._resizeTimer)
+        this._resizeTimer = setTimeout(() => {
+          if (this._spec) this.renderChart(this._spec)
+        }, 150)
+      })
+      this._resizeObserver.observe(this.el)
+    }
   },
 
   updated() {
@@ -52,6 +67,12 @@ const VegaLite = {
   },
 
   destroyed() {
+    if (this._resizeObserver) {
+      this._resizeObserver.disconnect()
+    }
+    if (this._resizeTimer) {
+      clearTimeout(this._resizeTimer)
+    }
     if (this.view) {
       this.view.finalize()
     }

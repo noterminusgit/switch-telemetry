@@ -218,7 +218,7 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
             data-y={widget_y(widget)}
             data-w={widget_w(widget)}
             data-h={widget_h(widget)}
-            class="relative bg-white rounded-lg shadow p-4"
+            class="relative bg-white rounded-lg shadow p-4 flex flex-col overflow-hidden"
             style={"grid-column: #{widget_x(widget) + 1} / span #{widget_w(widget)}; grid-row: #{widget_y(widget) + 1} / span #{widget_h(widget)};"}
           >
             <div class="flex justify-between items-start mb-2" data-drag>
@@ -245,15 +245,16 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
                 </button>
               </div>
             </div>
-            <.live_component
-              module={SwitchTelemetryWeb.Components.TelemetryChart}
-              id={widget.id}
-              title={nil}
-              series={Map.get(@widget_data, widget.id, [])}
-              chart_type={widget.chart_type}
-              width={widget_width(widget)}
-              height={widget_height(widget)}
-            />
+            <div class="flex-1 min-h-0">
+              <.live_component
+                module={SwitchTelemetryWeb.Components.TelemetryChart}
+                id={widget.id}
+                title={nil}
+                series={Map.get(@widget_data, widget.id, [])}
+                chart_type={widget.chart_type}
+                responsive={true}
+              />
+            </div>
             <div data-resize class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 hover:opacity-100 transition-opacity">
               <svg viewBox="0 0 6 6" class="w-3 h-3 text-gray-400">
                 <circle cx="5" cy="1" r="0.7" fill="currentColor" />
@@ -391,7 +392,4 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
   defp widget_h(%{position: %{"h" => h}}), do: h
   defp widget_h(%{position: %{h: h}}), do: h
   defp widget_h(_), do: 4
-
-  defp widget_width(widget), do: widget_w(widget) * 80
-  defp widget_height(widget), do: widget_h(widget) * 60
 end
