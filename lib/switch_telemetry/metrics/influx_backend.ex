@@ -6,6 +6,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
 
   @behaviour SwitchTelemetry.Metrics.Backend
 
+  require Logger
+
   alias SwitchTelemetry.InfluxDB
   alias SwitchTelemetry.Metrics.Backend
 
@@ -62,7 +64,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
       |> range(start: -#{minutes}m)
       |> filter(fn: (r) => r._measurement == "metrics")
       |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> pivot(rowKey: ["_time", "path", "source"], columnKey: ["_field"], valueColumn: "_value")
       |> sort(columns: ["_time"], desc: true)
       |> limit(n: #{limit})
     """
@@ -71,7 +73,11 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
       rows when is_list(rows) ->
         rows |> List.flatten() |> Enum.map(&normalize_metric/1)
 
-      _ ->
+      other ->
+        Logger.error(
+          "InfluxDB get_latest query failed for device #{device_id}: #{inspect(other)}"
+        )
+
         []
     end
   end
@@ -142,7 +148,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
       rows when is_list(rows) ->
         normalize_aggregates(rows)
 
-      _ ->
+      other ->
+        Logger.error("InfluxDB query_raw failed for #{device_id}/#{path}: #{inspect(other)}")
         []
     end
   end
@@ -181,7 +188,8 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
       rows when is_list(rows) ->
         rows |> List.flatten() |> Enum.map(&normalize_rate/1)
 
-      _ ->
+      other ->
+        Logger.error("InfluxDB query_rate failed for #{device_id}/#{path}: #{inspect(other)}")
         []
     end
   end

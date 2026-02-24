@@ -166,7 +166,6 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
       MockGrpcClient
       |> expect(:subscribe, fn :fake_channel -> :fake_stream end)
       |> expect(:send_request, fn :fake_stream, %Gnmi.SubscribeRequest{} -> :ok end)
-
       |> expect(:recv, fn :fake_stream -> {:error, :test_exit} end)
 
       {:noreply, new_state} = GnmiSession.handle_info(:subscribe, state)
@@ -193,7 +192,6 @@ defmodule SwitchTelemetry.Collector.GnmiSessionLifecycleTest do
         assert length(sub_list.subscription) == 2
         :ok
       end)
-
       |> expect(:recv, fn :fake_stream -> {:error, :test_exit} end)
 
       {:noreply, _new_state} = GnmiSession.handle_info(:subscribe, state)

@@ -88,3 +88,36 @@
   0% { opacity: 1; }
   100% { opacity: 0; }
 }
+
+/* Dashboard grid: 12-column CSS Grid with explicit placement */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  grid-auto-rows: 60px;
+  gap: 16px;
+}
+
+.dashboard-grid [data-widget-id] {
+  transition: box-shadow 0.15s ease;
+}
+
+.dashboard-grid [data-widget-id]:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dashboard-grid [data-drag] {
+  cursor: grab;
+}
+
+.dashboard-grid [data-drag]:active {
+  cursor: grabbing;
+}
+
+.dashboard-grid [data-resize] {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+}

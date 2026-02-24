@@ -1,7 +1,9 @@
 import VegaLite from "./vega_lite"
+import DashboardGrid from "./dashboard_grid"
 
 const Hooks = {
-  VegaLite
+  VegaLite,
+  DashboardGrid
 }
 
 export default Hooks

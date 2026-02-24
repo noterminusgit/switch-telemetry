@@ -545,7 +545,7 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
       refute html =~ "<p"
     end
 
-    test "widget with position shows correct grid span", %{conn: conn} do
+    test "widget with position shows correct grid placement", %{conn: conn} do
       {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_grid", name: "Grid Test"})
 
       {:ok, _widget} =
@@ -553,15 +553,16 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
           id: "wgt_grid",
           title: "Wide Widget",
           chart_type: :area,
-          position: %{"w" => 12, "h" => 4}
+          position: %{"x" => 0, "y" => 0, "w" => 12, "h" => 4}
         })
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
       assert html =~ "Wide Widget"
-      assert html =~ "col-span-12"
+      assert html =~ "grid-column: 1 / span 12"
+      assert html =~ "grid-row: 1 / span 4"
     end
 
-    test "widget with small position shows correct grid span", %{conn: conn} do
+    test "widget with small position shows correct grid placement", %{conn: conn} do
       {:ok, dashboard} = Dashboards.create_dashboard(%{id: "dash_grid_sm", name: "Small Grid"})
 
       {:ok, _widget} =
@@ -569,11 +570,12 @@ defmodule SwitchTelemetryWeb.DashboardLiveTest do
           id: "wgt_grid_sm",
           title: "Small Widget",
           chart_type: :line,
-          position: %{"w" => 4, "h" => 3}
+          position: %{"x" => 2, "y" => 1, "w" => 4, "h" => 3}
         })
 
       {:ok, _view, html} = live(conn, ~p"/dashboards/#{dashboard.id}")
-      assert html =~ "col-span-4"
+      assert html =~ "grid-column: 3 / span 4"
+      assert html =~ "grid-row: 2 / span 3"
     end
   end
 end

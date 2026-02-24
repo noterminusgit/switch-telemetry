@@ -112,6 +112,30 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
     end
   end
 
+  def handle_event("widget_position_changed", %{"id" => widget_id, "position" => pos}, socket) do
+    widget = Enum.find(socket.assigns.dashboard.widgets, &(&1.id == widget_id))
+
+    if widget do
+      position = %{
+        "x" => pos["x"],
+        "y" => pos["y"],
+        "w" => pos["w"],
+        "h" => pos["h"]
+      }
+
+      case Dashboards.update_widget(widget, %{position: position}) do
+        {:ok, _widget} ->
+          dashboard = Dashboards.get_dashboard!(socket.assigns.dashboard.id)
+          {:noreply, assign(socket, dashboard: dashboard)}
+
+        {:error, _changeset} ->
+          {:noreply, socket}
+      end
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_event("export_widget", %{"id" => widget_id}, socket) do
     widget = Enum.find(socket.assigns.dashboard.widgets, &(&1.id == widget_id))
     filename = "#{(widget && widget.title) || "chart"}.png"
@@ -186,12 +210,18 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
         </.simple_form>
       </div>
 
-      <div class="grid grid-cols-12 gap-4">
+      <div id="dashboard-grid" class="dashboard-grid" phx-hook="DashboardGrid">
         <%= for widget <- @dashboard.widgets do %>
           <div
-            class={"col-span-#{widget_colspan(widget)} bg-white rounded-lg shadow p-4"}
+            data-widget-id={widget.id}
+            data-x={widget_x(widget)}
+            data-y={widget_y(widget)}
+            data-w={widget_w(widget)}
+            data-h={widget_h(widget)}
+            class="relative bg-white rounded-lg shadow p-4"
+            style={"grid-column: #{widget_x(widget) + 1} / span #{widget_w(widget)}; grid-row: #{widget_y(widget) + 1} / span #{widget_h(widget)};"}
           >
-            <div class="flex justify-between items-start mb-2">
+            <div class="flex justify-between items-start mb-2" data-drag>
               <h3 class="text-sm font-medium text-gray-700">{widget.title}</h3>
               <div class="flex items-center">
                 <button
@@ -224,6 +254,16 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
               width={widget_width(widget)}
               height={widget_height(widget)}
             />
+            <div data-resize class="absolute bottom-0 right-0 w-4 h-4 cursor-nwse-resize opacity-0 hover:opacity-100 transition-opacity">
+              <svg viewBox="0 0 6 6" class="w-3 h-3 text-gray-400">
+                <circle cx="5" cy="1" r="0.7" fill="currentColor" />
+                <circle cx="3" cy="3" r="0.7" fill="currentColor" />
+                <circle cx="5" cy="3" r="0.7" fill="currentColor" />
+                <circle cx="1" cy="5" r="0.7" fill="currentColor" />
+                <circle cx="3" cy="5" r="0.7" fill="currentColor" />
+                <circle cx="5" cy="5" r="0.7" fill="currentColor" />
+              </svg>
+            </div>
           </div>
         <% end %>
       </div>
@@ -336,15 +376,22 @@ defmodule SwitchTelemetryWeb.DashboardLive.Show do
 
   defp trim_series(data, _), do: data
 
-  defp widget_colspan(%{position: %{"w" => w}}), do: min(w, 12)
-  defp widget_colspan(%{position: %{w: w}}), do: min(w, 12)
-  defp widget_colspan(_), do: 6
+  defp widget_x(%{position: %{"x" => x}}), do: x
+  defp widget_x(%{position: %{x: x}}), do: x
+  defp widget_x(_), do: 0
 
-  defp widget_width(%{position: %{"w" => w}}), do: w * 80
-  defp widget_width(%{position: %{w: w}}), do: w * 80
-  defp widget_width(_), do: 480
+  defp widget_y(%{position: %{"y" => y}}), do: y
+  defp widget_y(%{position: %{y: y}}), do: y
+  defp widget_y(_), do: 0
 
-  defp widget_height(%{position: %{"h" => h}}), do: h * 60
-  defp widget_height(%{position: %{h: h}}), do: h * 60
-  defp widget_height(_), do: 240
+  defp widget_w(%{position: %{"w" => w}}), do: min(w, 12)
+  defp widget_w(%{position: %{w: w}}), do: min(w, 12)
+  defp widget_w(_), do: 6
+
+  defp widget_h(%{position: %{"h" => h}}), do: h
+  defp widget_h(%{position: %{h: h}}), do: h
+  defp widget_h(_), do: 4
+
+  defp widget_width(widget), do: widget_w(widget) * 80
+  defp widget_height(widget), do: widget_h(widget) * 60
 end
