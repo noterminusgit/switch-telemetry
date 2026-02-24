@@ -203,9 +203,11 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   end
 
   @doc """
-  Query metrics where the path starts with the given prefix.
+  Query metrics where the path matches a subscription path prefix.
+  Subscription paths like `/interfaces/interface/state/counters` match stored
+  paths like `/interfaces/interface[name=Gi0/0/0]/state/counters/in-octets`
+  by allowing optional `[key=val]` selectors between segments and trailing leaves.
   Returns results grouped by full path, each with :path and :data keys.
-  Useful for subscription paths which are prefixes of stored metric paths.
   """
   @spec query_by_prefix(String.t(), String.t(), Backend.time_range()) :: [map()]
   def query_by_prefix(device_id, path_prefix, time_range) do
@@ -219,14 +221,14 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
         true -> "1h"
       end
 
-    flux = """
-    import "strings"
+    path_regex = subscription_path_to_flux_regex(path_prefix)
 
+    flux = """
     from(bucket: "#{bucket}")
       |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
       |> filter(fn: (r) => r._measurement == "metrics")
       |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => strings.hasPrefix(v: r.path, prefix: "#{escape_flux(path_prefix)}"))
+      |> filter(fn: (r) => r.path =~ #{path_regex})
       |> filter(fn: (r) => r._field == "value_float")
       |> aggregateWindow(every: #{flux_duration}, fn: mean, createEmpty: false)
     """
@@ -390,6 +392,22 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     str
     |> String.replace("\\", "\\\\")
     |> String.replace("\"", "\\\"")
+  end
+
+  # Convert a subscription path to a Flux regex that matches stored metric paths.
+  # Subscription: /interfaces/interface/state/counters
+  # Stored:       /interfaces/interface[name=Gi0/0/0]/state/counters/in-octets
+  # Regex allows optional [key=val] selectors after each segment and trailing leaves.
+  # Produces: /^\/interfaces\/interface(\[[^\]]*\])?\/state\/counters(\[[^\]]*\])?(\/.*)?$/
+  defp subscription_path_to_flux_regex(path) do
+    opt_keys = "(\\[[^\\]]*\\])?"
+
+    inner =
+      path
+      |> String.split("/", trim: true)
+      |> Enum.join(opt_keys <> "\\/")
+
+    "/^\\/" <> inner <> opt_keys <> "(\\/.*)?$/"
   end
 
   defp influx_config(key) do
