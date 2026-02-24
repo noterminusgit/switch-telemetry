@@ -3,6 +3,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
 
   alias SwitchTelemetry.{Collector, Devices}
   alias SwitchTelemetry.Collector.Subscription
+  alias SwitchTelemetry.Metrics.QueryRouter
 
   @impl true
   @spec mount(map(), map(), Phoenix.LiveView.Socket.t()) :: {:ok, Phoenix.LiveView.Socket.t()}
@@ -14,7 +15,10 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
      assign(socket,
        device: device,
        subscriptions: subscriptions,
-       page_title: "#{device.hostname} - Subscriptions"
+       page_title: "#{device.hostname} - Subscriptions",
+       expanded_path: nil,
+       chart_series: [],
+       time_range: %{"type" => "relative", "duration" => "1h"}
      )}
   end
 
@@ -72,6 +76,23 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
      socket
      |> put_flash(:info, "Subscription deleted")
      |> assign(subscriptions: subscriptions)}
+  end
+
+  def handle_event("show_path_chart", %{"sub-id" => sub_id, "path" => path}, socket) do
+    key = {sub_id, path}
+
+    if socket.assigns.expanded_path == key do
+      {:noreply, assign(socket, expanded_path: nil, chart_series: [])}
+    else
+      time_range = resolve_time_range(socket.assigns.time_range)
+
+      series =
+        QueryRouter.query(socket.assigns.device.id, path, time_range)
+        |> Enum.map(fn row -> %{time: row.bucket, value: row.avg_value || 0.0} end)
+
+      chart_series = [%{label: path, color: "#3B82F6", data: series}]
+      {:noreply, assign(socket, expanded_path: key, chart_series: chart_series)}
+    end
   end
 
   @impl true
@@ -134,50 +155,71 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200">
-            <tr :for={subscription <- @subscriptions} class="hover:bg-gray-50">
-              <td class="px-6 py-4 text-sm">
-                <div class="space-y-1">
-                  <div
-                    :for={path <- Enum.take(subscription.paths, 3)}
-                    class="font-mono text-xs text-gray-700 truncate max-w-md"
-                    title={path}
+            <%= for subscription <- @subscriptions do %>
+              <tr class="hover:bg-gray-50">
+                <td class="px-6 py-4 text-sm">
+                  <div class="space-y-1">
+                    <button
+                      :for={path <- subscription.paths}
+                      phx-click="show_path_chart"
+                      phx-value-sub-id={subscription.id}
+                      phx-value-path={path}
+                      class={[
+                        "font-mono text-xs truncate max-w-md block text-left cursor-pointer",
+                        if(@expanded_path == {subscription.id, path},
+                          do: "text-indigo-700 font-semibold",
+                          else: "text-indigo-600 hover:text-indigo-800 hover:underline"
+                        )
+                      ]}
+                      title={path}
+                    >
+                      {path}
+                    </button>
+                  </div>
+                </td>
+                <td class="px-6 py-4 text-sm text-gray-500">{subscription.mode}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">{format_interval(subscription.sample_interval_ns)}</td>
+                <td class="px-6 py-4 text-sm text-gray-500">{subscription.encoding}</td>
+                <td class="px-6 py-4">
+                  <button
+                    phx-click="toggle"
+                    phx-value-id={subscription.id}
+                    class={"inline-flex px-2 py-1 text-xs rounded-full cursor-pointer #{if subscription.enabled, do: "bg-green-100 text-green-800", else: "bg-gray-100 text-gray-800"}"}
                   >
-                    {path}
+                    {if subscription.enabled, do: "Enabled", else: "Disabled"}
+                  </button>
+                </td>
+                <td class="px-6 py-4 text-right space-x-2">
+                  <.link
+                    navigate={~p"/devices/#{@device.id}/subscriptions/#{subscription.id}/edit"}
+                    class="text-sm text-indigo-600 hover:text-indigo-800"
+                  >
+                    Edit
+                  </.link>
+                  <button
+                    phx-click="delete"
+                    phx-value-id={subscription.id}
+                    data-confirm="Delete this subscription?"
+                    class="text-sm text-red-600 hover:text-red-800"
+                  >
+                    Delete
+                  </button>
+                </td>
+              </tr>
+              <tr :if={expanded_for_sub?(@expanded_path, subscription.id)} class="bg-gray-50">
+                <td colspan="6" class="px-6 py-4">
+                  <div class="h-64">
+                    <.live_component
+                      module={SwitchTelemetryWeb.Components.TelemetryChart}
+                      id={"path-chart-#{subscription.id}"}
+                      series={@chart_series}
+                      chart_type={:line}
+                      responsive={true}
+                    />
                   </div>
-                  <div :if={length(subscription.paths) > 3} class="text-xs text-gray-400">
-                    +{length(subscription.paths) - 3} more
-                  </div>
-                </div>
-              </td>
-              <td class="px-6 py-4 text-sm text-gray-500">{subscription.mode}</td>
-              <td class="px-6 py-4 text-sm text-gray-500">{format_interval(subscription.sample_interval_ns)}</td>
-              <td class="px-6 py-4 text-sm text-gray-500">{subscription.encoding}</td>
-              <td class="px-6 py-4">
-                <button
-                  phx-click="toggle"
-                  phx-value-id={subscription.id}
-                  class={"inline-flex px-2 py-1 text-xs rounded-full cursor-pointer #{if subscription.enabled, do: "bg-green-100 text-green-800", else: "bg-gray-100 text-gray-800"}"}
-                >
-                  {if subscription.enabled, do: "Enabled", else: "Disabled"}
-                </button>
-              </td>
-              <td class="px-6 py-4 text-right space-x-2">
-                <.link
-                  navigate={~p"/devices/#{@device.id}/subscriptions/#{subscription.id}/edit"}
-                  class="text-sm text-indigo-600 hover:text-indigo-800"
-                >
-                  Edit
-                </.link>
-                <button
-                  phx-click="delete"
-                  phx-value-id={subscription.id}
-                  data-confirm="Delete this subscription?"
-                  class="text-sm text-red-600 hover:text-red-800"
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
+                </td>
+              </tr>
+            <% end %>
           </tbody>
         </table>
       </div>
@@ -191,6 +233,28 @@ defmodule SwitchTelemetryWeb.SubscriptionLive.Index do
     </div>
     """
   end
+
+  defp expanded_for_sub?({sub_id, _path}, sub_id), do: true
+  defp expanded_for_sub?(_, _), do: false
+
+  defp resolve_time_range(%{"type" => "relative", "duration" => duration}) do
+    now = DateTime.utc_now()
+    offset = parse_duration(duration)
+    %{start: DateTime.add(now, -offset, :second), end: now}
+  end
+
+  defp resolve_time_range(_) do
+    now = DateTime.utc_now()
+    %{start: DateTime.add(now, -3600, :second), end: now}
+  end
+
+  defp parse_duration("5m"), do: 300
+  defp parse_duration("15m"), do: 900
+  defp parse_duration("1h"), do: 3_600
+  defp parse_duration("6h"), do: 21_600
+  defp parse_duration("24h"), do: 86_400
+  defp parse_duration("7d"), do: 604_800
+  defp parse_duration(_), do: 3_600
 
   defp format_interval(ns) when is_integer(ns) do
     seconds = div(ns, 1_000_000_000)

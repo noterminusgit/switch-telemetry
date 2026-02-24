@@ -116,7 +116,7 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
       refute html =~ "/system/state/hostname"
     end
 
-    test "shows +N more when subscription has more than 3 paths", %{conn: conn} do
+    test "shows all paths as clickable buttons", %{conn: conn} do
       device = create_device()
 
       _sub =
@@ -130,7 +130,11 @@ defmodule SwitchTelemetryWeb.SubscriptionLiveTest do
         })
 
       {:ok, _view, html} = live(conn, ~p"/devices/#{device.id}/subscriptions")
-      assert html =~ "+1 more"
+      assert html =~ "/interfaces/interface/state/counters"
+      assert html =~ "/system/state/hostname"
+      assert html =~ "/components/component/state"
+      assert html =~ "/lldp/interfaces/interface/neighbors/neighbor/state"
+      refute html =~ "+1 more"
     end
 
     test "handles subscription with nil interval gracefully", %{conn: conn} do
