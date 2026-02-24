@@ -235,7 +235,33 @@ The CSS entry point is `assets/css/app.css` which uses `@import "tailwindcss"` a
 
 ## InfluxDB Setup
 
-InfluxDB v2 stores all time-series metrics. The setup script creates four buckets:
+InfluxDB v2 stores all time-series metrics. You need a running InfluxDB v2 instance and the `influx` CLI installed.
+
+### Initial Setup
+
+If this is a fresh InfluxDB install (or it has been reset), run the one-time setup:
+
+```bash
+# Check if setup is needed (returns true if not yet initialized)
+curl -s http://<influxdb-host>:8086/api/v2/setup | jq .allowed
+
+# Run initial setup -- choose your own password and token
+influx setup \
+  --host http://<influxdb-host>:8086 \
+  --org switch-telemetry \
+  --bucket metrics_raw \
+  --username admin \
+  --password <choose-a-password> \
+  --token $(openssl rand -hex 32) \
+  --retention 720h \
+  --force
+```
+
+**Save the token** printed by `influx setup` -- you'll need it for the app and all subsequent CLI commands.
+
+### Create Buckets
+
+The setup script creates the four required buckets:
 
 | Bucket | Retention | Purpose |
 |--------|-----------|---------|
@@ -245,25 +271,94 @@ InfluxDB v2 stores all time-series metrics. The setup script creates four bucket
 | `metrics_test` | None | Test bucket |
 
 ```bash
-# Default: localhost:8086, dev-token, switch-telemetry org
-./priv/influxdb/setup.sh
+# Using env vars (recommended)
+export INFLUXDB_TOKEN=<your-token>
+./priv/influxdb/setup.sh http://<influxdb-host>:8086 $INFLUXDB_TOKEN switch-telemetry
 
-# Custom host/token/org
-./priv/influxdb/setup.sh http://influxdb:8086 my-token my-org
+# Or with defaults (localhost:8086, dev-token, switch-telemetry org)
+./priv/influxdb/setup.sh
 ```
 
 Downsampling Flux tasks are in `priv/influxdb/tasks/` and can be deployed with `priv/influxdb/deploy_tasks.sh`.
 
-### InfluxDB Environment Variables
+### Environment Variables
 
-| Variable | Default (dev) | Description |
-|----------|---------------|-------------|
-| `INFLUXDB_HOST` | `localhost` | InfluxDB hostname |
-| `INFLUXDB_PORT` | `8086` | InfluxDB port |
-| `INFLUXDB_SCHEME` | `http` | `http` or `https` |
-| `INFLUXDB_TOKEN` | `dev-token` | API token |
-| `INFLUXDB_ORG` | `switch-telemetry` | Organization name |
-| `INFLUXDB_BUCKET` | `metrics_raw` | Default write bucket |
+Set these on the host running the Phoenix app. Setting `INFLUXDB_HOST` or `INFLUXDB_TOKEN` activates env-based config (overriding compile-time defaults in `config.exs`).
+
+| Variable | Default (dev) | Required (prod) | Description |
+|----------|---------------|-----------------|-------------|
+| `INFLUXDB_HOST` | `localhost` | No | InfluxDB hostname |
+| `INFLUXDB_PORT` | `8086` | No | InfluxDB port |
+| `INFLUXDB_SCHEME` | `http` | No | `http` or `https` |
+| `INFLUXDB_TOKEN` | `dev-token` | **Yes** | API token from `influx setup` |
+| `INFLUXDB_ORG` | `switch-telemetry` | **Yes** | Organization name |
+| `INFLUXDB_BUCKET` | `metrics_raw` | No | Default write bucket |
+
+Example for a remote InfluxDB host:
+
+```bash
+export INFLUXDB_HOST=10.0.1.50
+export INFLUXDB_TOKEN=abc123def456...
+export INFLUXDB_ORG=switch-telemetry
+```
+
+### Troubleshooting InfluxDB
+
+**"unauthorized access" errors in app logs**
+
+The token doesn't have permission or is incorrect. Verify your token works:
+
+```bash
+curl -s -H "Authorization: Token $INFLUXDB_TOKEN" \
+  "http://<influxdb-host>:8086/api/v2/buckets?org=switch-telemetry" | jq '.buckets[].name'
+```
+
+If this returns bucket names, the token is valid. If it returns 401, the token is wrong.
+
+**Can't list tokens with `influx auth list`**
+
+The CLI needs a valid token in its config. If you've lost the admin token:
+
+```bash
+# Recover tokens directly from the bolt database (bypasses auth)
+sudo influxd recovery auth list
+
+# Or create a new operator token
+sudo influxd recovery auth create-operator \
+  --org switch-telemetry \
+  --username admin
+```
+
+**`/api/v2/setup` returns `{"allowed": true}`**
+
+InfluxDB has not been initialized (or was reset). Run `influx setup` as shown above.
+
+**"bucket not found" or empty query results**
+
+Verify buckets exist:
+
+```bash
+influx bucket list \
+  --host http://<influxdb-host>:8086 \
+  --token $INFLUXDB_TOKEN \
+  --org switch-telemetry
+```
+
+If missing, re-run `./priv/influxdb/setup.sh`.
+
+**Writes succeed but queries return empty results**
+
+Check that data is actually landing in the bucket:
+
+```bash
+influx query \
+  --host http://<influxdb-host>:8086 \
+  --token $INFLUXDB_TOKEN \
+  --org switch-telemetry \
+  'from(bucket: "metrics_raw") |> range(start: -5m) |> limit(n: 5)'
+```
+
+If empty, the collector may not be writing data. Check app logs for `InfluxDB write failed` errors.
 
 ## Production Releases
 

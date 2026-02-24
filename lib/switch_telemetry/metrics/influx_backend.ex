@@ -48,7 +48,14 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
         }
       end)
 
-    InfluxDB.write(points)
+    case InfluxDB.write(points) do
+      :ok ->
+        :ok
+
+      other ->
+        Logger.error("InfluxDB write failed for #{length(metrics)} points: #{inspect(other)}")
+    end
+
     {length(metrics), nil}
   end
 

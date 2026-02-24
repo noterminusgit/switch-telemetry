@@ -7,17 +7,31 @@ if System.get_env("PHX_SERVER") do
 end
 
 # InfluxDB configuration from environment (all environments)
-if influx_host = System.get_env("INFLUXDB_HOST") do
+# Setting INFLUXDB_HOST or INFLUXDB_TOKEN triggers env-based config.
+# In dev/test, unset vars fall back to sensible defaults (localhost, switch-telemetry).
+# In prod, INFLUXDB_TOKEN and INFLUXDB_ORG are required.
+if System.get_env("INFLUXDB_HOST") || System.get_env("INFLUXDB_TOKEN") do
+  influx_token =
+    if config_env() == :prod do
+      System.get_env("INFLUXDB_TOKEN") || raise("INFLUXDB_TOKEN is required")
+    else
+      System.get_env("INFLUXDB_TOKEN") || "dev-token"
+    end
+
+  influx_org =
+    if config_env() == :prod do
+      System.get_env("INFLUXDB_ORG") || raise("INFLUXDB_ORG is required")
+    else
+      System.get_env("INFLUXDB_ORG", "switch-telemetry")
+    end
+
   config :switch_telemetry, SwitchTelemetry.InfluxDB,
-    host: influx_host,
+    host: System.get_env("INFLUXDB_HOST", "localhost"),
     port: String.to_integer(System.get_env("INFLUXDB_PORT", "8086")),
     scheme: System.get_env("INFLUXDB_SCHEME", "http"),
-    auth: [
-      method: :token,
-      token: System.get_env("INFLUXDB_TOKEN") || raise("INFLUXDB_TOKEN is required")
-    ],
+    auth: [method: :token, token: influx_token],
     bucket: System.get_env("INFLUXDB_BUCKET", "metrics_raw"),
-    org: System.get_env("INFLUXDB_ORG") || raise("INFLUXDB_ORG is required"),
+    org: influx_org,
     version: :v2
 end
 

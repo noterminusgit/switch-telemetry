@@ -28,7 +28,7 @@ config :switch_telemetry, SwitchTelemetry.InfluxDB,
   host: "localhost",
   port: 8086,
   scheme: "http",
-  auth: [method: :token, token: "test-token"],
+  auth: [method: :token, token: System.get_env("INFLUXDB_TOKEN", "test-token")],
   bucket: "metrics_test",
   org: "switch-telemetry",
   version: :v2

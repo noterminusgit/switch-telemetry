@@ -83,7 +83,7 @@ config :switch_telemetry, SwitchTelemetry.InfluxDB,
   host: "localhost",
   port: 8086,
   scheme: "http",
-  auth: [method: :token, token: "dev-token"],
+  auth: [method: :token, token: System.get_env("INFLUXDB_TOKEN", "dev-token")],
   bucket: "metrics_raw",
   org: "switch-telemetry",
   version: :v2
