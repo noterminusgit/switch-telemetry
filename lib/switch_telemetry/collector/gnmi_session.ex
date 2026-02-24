@@ -114,7 +114,16 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     {:noreply, %{state | stream: nil, task_ref: nil}}
   end
 
-  # Stream task crashed
+  # Stream task killed by code purge during development recompilation.
+  # The gRPC channel is still alive — just resubscribe immediately.
+  def handle_info({:DOWN, ref, :process, _pid, :killed}, %{task_ref: ref, channel: ch} = state)
+      when ch != nil do
+    Logger.info("gNMI stream reader restarting for #{state.device.hostname} (code reload)")
+    send(self(), :subscribe)
+    {:noreply, %{state | stream: nil, task_ref: nil}}
+  end
+
+  # Stream task crashed for other reasons — full reconnect with backoff
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
     Logger.error("gNMI stream task crashed for #{state.device.hostname}: #{inspect(reason)}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
