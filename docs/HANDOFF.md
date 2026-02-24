@@ -3,7 +3,7 @@
 ## Project Status
 
 **Location**: `/home/dude/switch-telemetry/`
-**State**: Phases 1-10 complete. 847 tests, 25 properties passing, zero warnings, CI green.
+**State**: Phases 1-11 complete. 1485 tests, 25 properties, zero warnings, CI green.
 **Ready for**: Next feature development.
 
 ## Documentation Index
@@ -108,6 +108,12 @@
   - **Collector lifecycle**: gnmi_session_lifecycle_test (handle_info, terminate with Mox gRPC mocks), netconf_session_lifecycle_test (handle_info, terminate with Mox SSH mocks), node_monitor_lifecycle_test (nodeup/nodedown handling, telemetry events)
   - **Collector GenServer callbacks**: expanded device_assignment_test and device_manager_test with handle_call, handle_cast, handle_info callback tests
 
+### Phase 11: Subscription Path Charts & Code Reload Resilience -- COMPLETE
+- Clickable subscription paths on `/devices/:id/subscriptions` with inline metric charts
+- `query_by_prefix/3` added to Backend behaviour and InfluxBackend using Flux regex to match subscription paths against stored paths with gNMI key selectors (e.g., `[name=Gi0/0/0]`)
+- Multi-series chart display with color-coded path suffixes via TelemetryChart LiveComponent
+- gNMI stream reader resilience to BEAM code purge during development recompilation (`:killed` → immediate resubscribe on existing channel)
+
 ## Key Hex Dependencies
 
 ```elixir
@@ -148,7 +154,7 @@ end
 
 ## Next Steps
 
-All core phases (1-10) are complete. 847 tests, 25 properties passing, zero warnings, CI green.
+All core phases (1-11) are complete. 1485 tests, 25 properties, zero warnings, CI green.
 
 Potential next areas:
 1. SNMP collector support

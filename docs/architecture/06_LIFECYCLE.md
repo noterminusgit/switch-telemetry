@@ -90,6 +90,13 @@ GenServers are used for **infrastructure** processes, NOT for domain entities.
      │    PubSub.broadcast per         │
      │    notification                 │
      │                                 │
+     │  Code reload: If a dev recompile│
+     │    kills the stream reader task │
+     │    (:killed reason), the session│
+     │    resubscribes immediately on  │
+     │    the existing gRPC channel    │
+     │    without full reconnect.      │
+     │                                 │
      │  NETCONF: :collect timer fires, │
      │    sends XML RPC, parses        │
      │    response, inserts + broadcasts│

@@ -71,6 +71,7 @@ A `SwitchTelemetry.Metrics.Backend` behaviour defines the contract:
 @callback query(String.t(), String.t(), time_range()) :: [map()]
 @callback query_raw(String.t(), String.t(), String.t(), time_range()) :: [map()]
 @callback query_rate(String.t(), String.t(), String.t(), time_range()) :: [map()]
+@callback query_by_prefix(String.t(), String.t(), time_range()) :: [map()]
 ```
 
 The active backend is configured via:
@@ -106,6 +107,21 @@ Routes automatically:
 - <= 1 hour: raw bucket with `aggregateWindow(every: 10s)`
 - 1-24 hours: `metrics_5m` downsampled bucket
 - > 24 hours: `metrics_1h` downsampled bucket
+
+### Prefix Query (for subscription path exploration)
+
+```elixir
+QueryRouter.query_by_prefix(device_id, path_prefix, time_range)
+```
+
+Returns results grouped by full path: `[%{path: String.t(), data: [%{bucket: DateTime.t(), avg_value: float()}]}]`.
+
+Subscription paths (e.g., `/interfaces/interface/state/counters`) are schema-level prefixes that don't literally match stored InfluxDB paths (e.g., `/interfaces/interface[name=Gi0/0/0]/state/counters/in-octets`) because gNMI key selectors like `[name=...]` are injected between segments. The InfluxBackend converts subscription paths to Flux regex patterns that allow optional `[key=val]` selectors after each segment:
+
+```elixir
+# /interfaces/interface/state/counters becomes:
+# /^\/interfaces(\[.*\])?\/interface(\[.*\])?\/state(\[.*\])?\/counters(\[.*\])?(\/.*)?$/
+```
 
 ### Rate Calculation (for counters like octets)
 

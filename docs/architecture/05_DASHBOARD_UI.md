@@ -437,6 +437,10 @@ defmodule SwitchTelemetry.Metrics.QueryRouter do
     backend().query_raw(device_id, path, bucket_size, time_range)
   end
 
+  def query_by_prefix(device_id, path_prefix, time_range) do
+    backend().query_by_prefix(device_id, path_prefix, time_range)
+  end
+
   def query_rate(device_id, path, bucket_size, time_range) do
     backend().query_rate(device_id, path, bucket_size, time_range)
   end
@@ -449,3 +453,33 @@ end
 ```
 
 The InfluxBackend internally selects the appropriate bucket and uses Flux `aggregateWindow()` for raw data or queries pre-aggregated downsampled buckets. This ensures dashboards remain fast regardless of the time window the user selects.
+
+## Subscription Path Charts
+
+The Subscriptions page (`/devices/:id/subscriptions`) displays inline metric charts for each subscription path. Clicking a path in the table expands a chart row showing collected data.
+
+### How It Works
+
+1. Each subscription path is rendered as a clickable button
+2. Clicking a path fires a `"show_path_chart"` event with the subscription ID and path
+3. The LiveView queries `QueryRouter.query_by_prefix/3` to find all matching metric paths (accounting for gNMI key selectors)
+4. Results are mapped to multi-colored series and rendered via the `TelemetryChart` LiveComponent
+5. Clicking the same path again collapses the chart
+
+### Path Matching Challenge
+
+Subscription paths (e.g., `/interfaces/interface/state/counters`) are schema-level prefixes that don't literally prefix-match stored InfluxDB paths (e.g., `/interfaces/interface[name=Gi0/0/0]/state/counters/in-octets`). The `query_by_prefix/3` implementation converts subscription paths to Flux regex patterns that allow optional `[key=val]` selectors between segments.
+
+### Series Data Format
+
+```elixir
+chart_series = [
+  %{
+    label: "in-octets",             # suffix relative to subscription path
+    color: "#3B82F6",               # from 8-color palette
+    data: [%{time: ~U[...], value: 42.5}, ...]
+  },
+  %{label: "out-octets", color: "#EF4444", data: [...]},
+  ...
+]
+```
