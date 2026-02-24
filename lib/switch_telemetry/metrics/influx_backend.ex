@@ -157,6 +157,7 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
 
       other ->
         Logger.error("InfluxDB query_raw failed for #{device_id}/#{path}: #{inspect(other)}")
+        log_influx_config()
         []
     end
   end
@@ -342,5 +343,16 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
   defp influx_config(key) do
     Application.get_env(:switch_telemetry, SwitchTelemetry.InfluxDB)
     |> Keyword.fetch!(key)
+  end
+
+  defp log_influx_config do
+    config = Application.get_env(:switch_telemetry, SwitchTelemetry.InfluxDB, [])
+    token = get_in(config, [:auth, :token]) || "nil"
+    redacted = String.slice(token, 0, 6) <> "..." <> String.slice(token, -4, 4)
+
+    Logger.error(
+      "InfluxDB config: host=#{config[:host]}:#{config[:port]} " <>
+        "org=#{config[:org]} bucket=#{config[:bucket]} token=#{redacted}"
+    )
   end
 end
