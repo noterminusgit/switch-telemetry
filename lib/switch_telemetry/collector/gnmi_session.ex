@@ -43,6 +43,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   @impl true
   def init(opts) do
     device = Keyword.fetch!(opts, :device)
+    Logger.metadata(gnmi_device: device.hostname)
     Process.flag(:trap_exit, true)
     send(self(), :connect)
     {:ok, %__MODULE__{device: device, retry_count: 0}}
@@ -57,7 +58,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
     case grpc_client().connect(target, grpc_opts) do
       {:ok, channel} ->
-        Logger.info("gNMI connected to #{state.device.hostname} at #{target}")
+        Logger.info("connected to #{target}")
 
         Devices.update_device(state.device, %{
           status: :active,
@@ -69,7 +70,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         {:noreply, %{state | channel: channel, retry_count: 0, credential: credential}}
 
       {:error, reason} ->
-        Logger.warning("gNMI connection to #{state.device.hostname} failed: #{inspect(reason)}")
+        Logger.warning("connection failed: #{inspect(reason)}")
 
         Devices.update_device(state.device, %{status: :unreachable})
         StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
@@ -81,9 +82,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   def handle_info(:subscribe, state) do
     subscriptions = build_subscriptions(state.device)
 
-    Logger.info(
-      "gNMI subscribing for #{state.device.hostname}: #{length(subscriptions)} subscription paths"
-    )
+    Logger.info("subscribing #{length(subscriptions)} paths")
 
     encoding = encoding_to_gnmi(state.device.gnmi_encoding)
 
@@ -108,7 +107,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # Stream task completed normally (stream ended)
   def handle_info({ref, :stream_ended}, %{task_ref: ref} = state) do
     Process.demonitor(ref, [:flush])
-    Logger.warning("gNMI stream ended for #{state.device.hostname}, reconnecting")
+    Logger.warning("stream ended, reconnecting")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :stream_ended)
     schedule_retry(state)
     {:noreply, %{state | stream: nil, task_ref: nil}}
@@ -118,14 +117,14 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # The gRPC channel is still alive — just resubscribe immediately.
   def handle_info({:DOWN, ref, :process, _pid, :killed}, %{task_ref: ref, channel: ch} = state)
       when ch != nil do
-    Logger.info("gNMI stream reader restarting for #{state.device.hostname} (code reload)")
+    Logger.info("stream reader restarting (code reload)")
     send(self(), :subscribe)
     {:noreply, %{state | stream: nil, task_ref: nil}}
   end
 
   # Stream task crashed for other reasons — full reconnect with backoff
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
-    Logger.error("gNMI stream task crashed for #{state.device.hostname}: #{inspect(reason)}")
+    Logger.error("stream task crashed: #{inspect(reason)}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
     schedule_retry(state)
     {:noreply, %{state | stream: nil, task_ref: nil}}
@@ -167,16 +166,16 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
             end
 
           {:ok, %Gnmi.SubscribeResponse{response: {:sync_response, true}}} ->
-            Logger.debug("gNMI sync complete for #{device.hostname}")
+            Logger.debug("sync complete")
 
           {:error, reason} ->
-            Logger.error("gNMI stream error for #{device.hostname}: #{inspect(reason)}")
+            Logger.error("stream error: #{inspect(reason)}")
             StreamMonitor.report_error(device.id, :gnmi, reason)
         end)
         |> Stream.run()
 
       {:error, reason} ->
-        Logger.error("gNMI recv failed for #{device.hostname}: #{inspect(reason)}")
+        Logger.error("recv failed: #{inspect(reason)}")
     end
 
     :stream_ended
@@ -199,9 +198,9 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       value_str = extract_str(typed_val)
 
       if is_nil(value_float) and is_nil(value_int) and is_nil(value_str) do
-        Logger.warning(
-          "gNMI value extraction failed for #{device.hostname} path=#{formatted_path} " <>
-            "typed_value=#{inspect(typed_val)}"
+        warn_once(
+          :extract_nil,
+          "value extraction failed path=#{formatted_path} typed_value=#{inspect_short(typed_val)}"
         )
       end
 
@@ -309,7 +308,11 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         val
 
       {:error, reason} ->
-        Logger.warning("gNMI JSON decode failed: #{inspect(reason)} bytes=#{inspect(bytes)}")
+        warn_once(
+          :json_fail,
+          "JSON decode failed: #{inspect(reason)} bytes=#{inspect_short(bytes, 80)}"
+        )
+
         nil
     end
   end
@@ -387,6 +390,24 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     else
       nil
     end
+  end
+
+  # Log first occurrence, then every 100th, with suppressed count
+  defp warn_once(key, message) do
+    count = Process.get(key, 0)
+
+    cond do
+      count == 0 -> Logger.warning(message)
+      rem(count, 100) == 0 -> Logger.warning("#{message} (repeated #{count}x)")
+      true -> :ok
+    end
+
+    Process.put(key, count + 1)
+  end
+
+  defp inspect_short(term, limit \\ 120) do
+    s = inspect(term, limit: 3, printable_limit: 80)
+    if String.length(s) > limit, do: String.slice(s, 0, limit) <> "...", else: s
   end
 
   defp grpc_client do
