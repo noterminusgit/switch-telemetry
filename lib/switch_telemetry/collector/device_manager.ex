@@ -140,29 +140,15 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
 
   defp do_start_session(device_id) do
     device = Devices.get_device!(device_id)
-    pids = %{}
 
     pids =
-      if device.transport in [:gnmi, :both] do
-        case start_child(GnmiSession, device) do
-          {:ok, pid} -> Map.put(pids, :gnmi, pid)
-          {:error, {:already_started, pid}} -> Map.put(pids, :gnmi, pid)
-          _ -> pids
+      Enum.reduce(session_specs(device.transport), %{}, fn {key, mod}, acc ->
+        case start_child(mod, device) do
+          {:ok, pid} -> Map.put(acc, key, pid)
+          {:error, {:already_started, pid}} -> Map.put(acc, key, pid)
+          _ -> acc
         end
-      else
-        pids
-      end
-
-    pids =
-      if device.transport in [:netconf, :both] do
-        case start_child(NetconfSession, device) do
-          {:ok, pid} -> Map.put(pids, :netconf, pid)
-          {:error, {:already_started, pid}} -> Map.put(pids, :netconf, pid)
-          _ -> pids
-        end
-      else
-        pids
-      end
+      end)
 
     if map_size(pids) > 0 do
       Logger.info("Started sessions for #{device.hostname}: #{inspect(Map.keys(pids))}")
@@ -173,6 +159,10 @@ defmodule SwitchTelemetry.Collector.DeviceManager do
   rescue
     e -> {:error, e}
   end
+
+  defp session_specs(:gnmi), do: [{:gnmi, GnmiSession}]
+  defp session_specs(:netconf), do: [{:netconf, NetconfSession}]
+  defp session_specs(:both), do: [{:gnmi, GnmiSession}, {:netconf, NetconfSession}]
 
   defp start_child(module, device) do
     Horde.DynamicSupervisor.start_child(

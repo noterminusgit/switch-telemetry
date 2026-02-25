@@ -13,11 +13,8 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   use GenServer
   require Logger
 
-  alias SwitchTelemetry.{Devices, Metrics}
-  alias SwitchTelemetry.Collector.{StreamMonitor, Subscription, TlsHelper}
+  alias SwitchTelemetry.Collector.{Helpers, StreamMonitor, Subscription, TlsHelper}
 
-  @max_retry_delay :timer.minutes(5)
-  @base_retry_delay :timer.seconds(5)
   @connect_timeout 10_000
 
   defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential]
@@ -52,15 +49,15 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   @impl true
   def handle_info(:connect, state) do
     target = "#{state.device.ip_address}:#{state.device.gnmi_port}"
-    credential = load_credential(state.device)
+    credential = Helpers.load_credential(state.device)
     grpc_opts = TlsHelper.build_grpc_opts(state.device.secure_mode, credential)
     grpc_opts = Keyword.merge(grpc_opts, adapter_opts: [connect_timeout: @connect_timeout])
 
-    case grpc_client().connect(target, grpc_opts) do
+    case Helpers.grpc_client().connect(target, grpc_opts) do
       {:ok, channel} ->
         Logger.info("connected to #{target}")
 
-        Devices.update_device(state.device, %{
+        SwitchTelemetry.Devices.update_device(state.device, %{
           status: :active,
           last_seen_at: DateTime.utc_now()
         })
@@ -72,7 +69,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       {:error, reason} ->
         Logger.warning("connection failed: #{inspect(reason)}")
 
-        Devices.update_device(state.device, %{status: :unreachable})
+        SwitchTelemetry.Devices.update_device(state.device, %{status: :unreachable})
         StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
         schedule_retry(state)
         {:noreply, %{state | retry_count: state.retry_count + 1}}
@@ -96,8 +93,8 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
          }}
     }
 
-    stream = grpc_client().subscribe(state.channel)
-    grpc_client().send_request(stream, subscribe_request)
+    stream = Helpers.grpc_client().subscribe(state.channel)
+    Helpers.grpc_client().send_request(stream, subscribe_request)
 
     task = Task.async(fn -> read_stream(stream, state.device) end)
 
@@ -137,7 +134,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :terminated)
 
     if state.channel do
-      grpc_client().disconnect(state.channel)
+      Helpers.grpc_client().disconnect(state.channel)
     end
 
     :ok
@@ -146,24 +143,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # --- Private ---
 
   defp read_stream(stream, device) do
-    case grpc_client().recv(stream) do
+    case Helpers.grpc_client().recv(stream) do
       {:ok, response_stream} ->
         response_stream
         |> Stream.each(fn
           {:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}} ->
             metrics = parse_notification(device, notification)
-
-            if metrics != [] do
-              Metrics.insert_batch(metrics)
-
-              Phoenix.PubSub.broadcast(
-                SwitchTelemetry.PubSub,
-                "device:#{device.id}",
-                {:gnmi_metrics, device.id, metrics}
-              )
-
-              StreamMonitor.report_message(device.id, :gnmi)
-            end
+            Helpers.persist_and_broadcast(metrics, device.id, :gnmi)
 
           {:ok, %Gnmi.SubscribeResponse{response: {:sync_response, true}}} ->
             Logger.debug("sync complete")
@@ -371,25 +357,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   end
 
   defp schedule_retry(state) do
-    delay =
-      min(
-        trunc(@base_retry_delay * :math.pow(2, state.retry_count)),
-        @max_retry_delay
-      )
-
-    Process.send_after(self(), :connect, delay)
-  end
-
-  defp load_credential(device) do
-    if device.credential_id do
-      try do
-        Devices.get_credential!(device.credential_id)
-      rescue
-        Ecto.NoResultsError -> nil
-      end
-    else
-      nil
-    end
+    Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
   end
 
   # Log first occurrence, then every 100th, with suppressed count
@@ -410,11 +378,4 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     if String.length(s) > limit, do: String.slice(s, 0, limit) <> "...", else: s
   end
 
-  defp grpc_client do
-    Application.get_env(
-      :switch_telemetry,
-      :grpc_client,
-      SwitchTelemetry.Collector.DefaultGrpcClient
-    )
-  end
 end

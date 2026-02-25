@@ -8,10 +8,15 @@ defmodule SwitchTelemetryWeb.Components.Sidebar do
   """
   use SwitchTelemetryWeb, :html
 
+  alias SwitchTelemetryWeb.Components.NavItems
+
   attr :current_user, :map, required: true
   attr :current_path, :string, required: true
 
   def sidebar(assigns) do
+    assigns = assign(assigns, :nav_items, NavItems.items())
+    assigns = assign(assigns, :admin_item, NavItems.admin_item())
+
     ~H"""
     <aside class="hidden md:flex md:flex-shrink-0">
       <div class="flex flex-col w-16 lg:w-60 transition-all duration-300">
@@ -22,47 +27,18 @@ defmodule SwitchTelemetryWeb.Components.Sidebar do
           </div>
           <nav class="mt-8 flex-1 flex flex-col space-y-1 px-2" aria-label="Sidebar">
             <.nav_item
-              path={~p"/dashboards"}
+              :for={item <- @nav_items}
+              path={item.path}
               current_path={@current_path}
-              icon="hero-chart-bar-square"
-              label="Dashboards"
-            />
-            <.nav_item
-              path={~p"/devices"}
-              current_path={@current_path}
-              icon="hero-server-stack"
-              label="Devices"
-            />
-            <.nav_item
-              path={~p"/streams"}
-              current_path={@current_path}
-              icon="hero-signal"
-              label="Streams"
-            />
-            <.nav_item
-              path={~p"/alerts"}
-              current_path={@current_path}
-              icon="hero-bell-alert"
-              label="Alerts"
-            />
-            <.nav_item
-              path={~p"/credentials"}
-              current_path={@current_path}
-              icon="hero-key"
-              label="Credentials"
-            />
-            <.nav_item
-              path={~p"/settings"}
-              current_path={@current_path}
-              icon="hero-cog-6-tooth"
-              label="Settings"
+              icon={item.icon}
+              label={item.label}
             />
             <.nav_item
               :if={@current_user.role == :admin}
-              path={~p"/admin/users"}
+              path={@admin_item.path}
               current_path={@current_path}
-              icon="hero-users"
-              label="Users"
+              icon={@admin_item.icon}
+              label={@admin_item.label}
               admin={true}
             />
           </nav>

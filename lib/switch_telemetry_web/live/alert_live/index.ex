@@ -11,17 +11,12 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
       Phoenix.PubSub.subscribe(SwitchTelemetry.PubSub, "alerts")
     end
 
-    rules = Alerting.list_alert_rules()
-    events = Alerting.list_recent_events(limit: 20)
-    channels = Alerting.list_channels()
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
-
     {:ok,
-     assign(socket,
-       rules: rules,
-       events: events,
-       channels: channels,
-       firing_rules: firing_rules,
+     socket
+     |> reload_rules()
+     |> assign(
+       events: Alerting.list_recent_events(limit: 20),
+       channels: Alerting.list_channels(),
        page_title: "Alerts"
      )}
   end
@@ -85,29 +80,23 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   def handle_event("toggle_enabled", %{"id" => id}, socket) do
     rule = Alerting.get_alert_rule!(id)
     {:ok, _updated} = Alerting.update_alert_rule(rule, %{enabled: !rule.enabled})
-    rules = Alerting.list_alert_rules()
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
-    {:noreply, assign(socket, rules: rules, firing_rules: firing_rules)}
+    {:noreply, reload_rules(socket)}
   end
 
   def handle_event("delete_rule", %{"id" => id}, socket) do
     rule = Alerting.get_alert_rule!(id)
     {:ok, _} = Alerting.delete_alert_rule(rule)
-    rules = Alerting.list_alert_rules()
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
 
     {:noreply,
      socket
-     |> assign(rules: rules, firing_rules: firing_rules)
+     |> reload_rules()
      |> put_flash(:info, "Rule deleted")}
   end
 
   def handle_event("acknowledge", %{"id" => id}, socket) do
     rule = Alerting.get_alert_rule!(id)
     {:ok, _} = Alerting.update_rule_state(rule, :acknowledged)
-    rules = Alerting.list_alert_rules()
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
-    {:noreply, assign(socket, rules: rules, firing_rules: firing_rules)}
+    {:noreply, reload_rules(socket)}
   end
 
   def handle_event("delete_channel", %{"id" => id}, socket) do
@@ -124,16 +113,14 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
   @spec handle_info(term(), Phoenix.LiveView.Socket.t()) ::
           {:noreply, Phoenix.LiveView.Socket.t()}
   def handle_info({:alert_event, _event}, socket) do
-    rules = Alerting.list_alert_rules()
-    events = Alerting.list_recent_events(limit: 20)
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
-    {:noreply, assign(socket, rules: rules, events: events, firing_rules: firing_rules)}
+    {:noreply,
+     socket
+     |> reload_rules()
+     |> assign(events: Alerting.list_recent_events(limit: 20))}
   end
 
   def handle_info({:rule_updated, _rule}, socket) do
-    rules = Alerting.list_alert_rules()
-    firing_rules = Enum.filter(rules, &(&1.state == :firing))
-    {:noreply, assign(socket, rules: rules, firing_rules: firing_rules)}
+    {:noreply, reload_rules(socket)}
   end
 
   def handle_info(_msg, socket), do: {:noreply, socket}
@@ -359,6 +346,11 @@ defmodule SwitchTelemetryWeb.AlertLive.Index do
       <% end %>
     </div>
     """
+  end
+
+  defp reload_rules(socket) do
+    rules = Alerting.list_alert_rules()
+    assign(socket, rules: rules, firing_rules: Enum.filter(rules, &(&1.state == :firing)))
   end
 
   defp severity_color(:critical), do: "bg-red-100 text-red-800"

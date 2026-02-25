@@ -12,6 +12,36 @@ defmodule SwitchTelemetry.InfluxCase do
 
       alias SwitchTelemetry.InfluxDB
       alias SwitchTelemetry.Metrics
+
+      import SwitchTelemetry.InfluxCase, only: [eventually: 1, eventually: 2]
+    end
+  end
+
+  @doc """
+  Polls `fun` every 100ms for up to `timeout_ms` (default 2000) until it returns
+  a truthy value. Raises on timeout. Replaces brittle `Process.sleep` in
+  read-after-write InfluxDB tests.
+  """
+  def eventually(fun, timeout_ms \\ 2_000) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    do_eventually(fun, deadline)
+  end
+
+  defp do_eventually(fun, deadline) do
+    case fun.() do
+      nil -> maybe_retry(fun, deadline)
+      false -> maybe_retry(fun, deadline)
+      [] -> maybe_retry(fun, deadline)
+      result -> result
+    end
+  end
+
+  defp maybe_retry(fun, deadline) do
+    if System.monotonic_time(:millisecond) >= deadline do
+      raise "eventually/2 timed out"
+    else
+      Process.sleep(100)
+      do_eventually(fun, deadline)
     end
   end
 

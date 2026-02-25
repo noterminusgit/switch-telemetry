@@ -10,8 +10,8 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   require Logger
   import SweetXml
 
-  alias SwitchTelemetry.{Devices, Metrics}
-  alias SwitchTelemetry.Collector.{StreamMonitor, Subscription}
+  alias SwitchTelemetry.Devices
+  alias SwitchTelemetry.Collector.{Helpers, StreamMonitor, Subscription}
 
   @framing_end "]]>]]>"
   @connect_timeout 10_000
@@ -27,7 +27,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   </hello>]]>]]>
   """
 
-  defstruct [:device, :ssh_ref, :channel_id, :timer_ref, buffer: "", message_id: 1]
+  defstruct [:device, :ssh_ref, :channel_id, :timer_ref, buffer: "", message_id: 1, retry_count: 0]
 
   # --- Public API ---
 
@@ -58,51 +58,17 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   @impl true
   def handle_info(:connect, state) do
     device = state.device
-    credential = Devices.get_credential!(device.credential_id)
 
-    ssh_opts = [
-      {:user, String.to_charlist(credential.username)},
-      {:silently_accept_hosts, true},
-      {:connect_timeout, @connect_timeout}
-    ]
-
-    ssh_opts =
-      if credential.password do
-        [{:password, String.to_charlist(credential.password)} | ssh_opts]
-      else
-        ssh_opts
-      end
-
-    with {:ok, ssh_ref} <-
-           ssh_client().connect(
-             String.to_charlist(device.ip_address),
-             device.netconf_port,
-             ssh_opts
-           ),
-         {:ok, channel_id} <-
-           ssh_client().session_channel(ssh_ref, @channel_timeout),
-         :success <-
-           ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
-      Logger.info("NETCONF connected to #{device.hostname}")
-      ssh_client().send(ssh_ref, channel_id, @netconf_hello)
-
-      Devices.update_device(device, %{
-        status: :active,
-        last_seen_at: DateTime.utc_now()
-      })
-
-      StreamMonitor.report_connected(device.id, :netconf)
-      interval = device.collection_interval_ms || 30_000
-      {:ok, timer_ref} = :timer.send_interval(interval, :collect)
-
-      {:noreply, %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref}}
-    else
-      error ->
-        Logger.error("NETCONF connection to #{device.hostname} failed: #{inspect(error)}")
+    case Helpers.load_credential(device) do
+      nil ->
+        Logger.error("NETCONF connection to #{device.hostname} failed: no credential")
         Devices.update_device(device, %{status: :unreachable})
-        StreamMonitor.report_disconnected(device.id, :netconf, error)
-        Process.send_after(self(), :connect, 10_000)
-        {:noreply, state}
+        StreamMonitor.report_disconnected(device.id, :netconf, :no_credential)
+        Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+        {:noreply, %{state | retry_count: state.retry_count + 1}}
+
+      credential ->
+        do_connect(state, device, credential)
     end
   end
 
@@ -114,7 +80,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     state =
       Enum.reduce(paths, state, fn path, acc ->
         rpc = build_get_rpc(acc.message_id, path)
-        ssh_client().send(acc.ssh_ref, acc.channel_id, rpc)
+        Helpers.ssh_client().send(acc.ssh_ref, acc.channel_id, rpc)
         %{acc | message_id: acc.message_id + 1}
       end)
 
@@ -137,8 +103,8 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     Logger.warning("NETCONF session closed for #{state.device.hostname}, reconnecting")
     StreamMonitor.report_disconnected(state.device.id, :netconf, :channel_closed)
     cleanup_ssh(state)
-    Process.send_after(self(), :connect, 5_000)
-    {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: ""}}
+    Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+    {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: "", retry_count: state.retry_count + 1}}
   end
 
   def handle_info({:ssh_cm, _ref, {:exit_status, _channel, _status}}, state) do
@@ -160,6 +126,53 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   # --- Private ---
 
+  defp do_connect(state, device, credential) do
+    ssh_opts = [
+      {:user, String.to_charlist(credential.username)},
+      {:silently_accept_hosts, true},
+      {:connect_timeout, @connect_timeout}
+    ]
+
+    ssh_opts =
+      if credential.password do
+        [{:password, String.to_charlist(credential.password)} | ssh_opts]
+      else
+        ssh_opts
+      end
+
+    with {:ok, ssh_ref} <-
+           Helpers.ssh_client().connect(
+             String.to_charlist(device.ip_address),
+             device.netconf_port,
+             ssh_opts
+           ),
+         {:ok, channel_id} <-
+           Helpers.ssh_client().session_channel(ssh_ref, @channel_timeout),
+         :success <-
+           Helpers.ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
+      Logger.info("NETCONF connected to #{device.hostname}")
+      Helpers.ssh_client().send(ssh_ref, channel_id, @netconf_hello)
+
+      Devices.update_device(device, %{
+        status: :active,
+        last_seen_at: DateTime.utc_now()
+      })
+
+      StreamMonitor.report_connected(device.id, :netconf)
+      interval = device.collection_interval_ms || 30_000
+      {:ok, timer_ref} = :timer.send_interval(interval, :collect)
+
+      {:noreply, %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref, retry_count: 0}}
+    else
+      error ->
+        Logger.error("NETCONF connection to #{device.hostname} failed: #{inspect(error)}")
+        Devices.update_device(device, %{status: :unreachable})
+        StreamMonitor.report_disconnected(device.id, :netconf, error)
+        Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+        {:noreply, %{state | retry_count: state.retry_count + 1}}
+    end
+  end
+
   defp extract_messages(buffer) do
     extract_messages(buffer, [])
   end
@@ -176,18 +189,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   defp handle_netconf_message(xml, device) do
     metrics = parse_netconf_response(xml, device)
-
-    if metrics != [] do
-      Metrics.insert_batch(metrics)
-
-      Phoenix.PubSub.broadcast(
-        SwitchTelemetry.PubSub,
-        "device:#{device.id}",
-        {:netconf_metrics, device.id, metrics}
-      )
-
-      StreamMonitor.report_message(device.id, :netconf)
-    end
+    Helpers.persist_and_broadcast(metrics, device.id, :netconf)
   rescue
     e ->
       Logger.error("NETCONF parse error for #{device.hostname}: #{inspect(e)}")
@@ -275,15 +277,8 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     end
 
     if state.ssh_ref do
-      ssh_client().close(state.ssh_ref)
+      Helpers.ssh_client().close(state.ssh_ref)
     end
   end
 
-  defp ssh_client do
-    Application.get_env(
-      :switch_telemetry,
-      :ssh_client,
-      SwitchTelemetry.Collector.DefaultSshClient
-    )
-  end
 end

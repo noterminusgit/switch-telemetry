@@ -7,8 +7,7 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
   """
   require Logger
 
-  alias SwitchTelemetry.Collector.TlsHelper
-  alias SwitchTelemetry.Devices
+  alias SwitchTelemetry.Collector.{Helpers, TlsHelper}
 
   @type protocol :: :gnmi | :netconf
   @type test_result :: %{
@@ -35,18 +34,18 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
   def test_gnmi(device) do
     start_time = System.monotonic_time(:millisecond)
 
-    credential = load_credential(device)
+    credential = Helpers.load_credential(device)
     grpc_opts = TlsHelper.build_grpc_opts(device.secure_mode, credential)
     grpc_opts = Keyword.merge(grpc_opts, adapter_opts: [connect_timeout: @connect_timeout])
     target = "#{device.ip_address}:#{device.gnmi_port}"
 
     result =
-      case grpc_client().connect(target, grpc_opts) do
+      case Helpers.grpc_client().connect(target, grpc_opts) do
         {:ok, channel} ->
           cap_result =
-            grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout)
+            Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout)
 
-          grpc_client().disconnect(channel)
+          Helpers.grpc_client().disconnect(channel)
 
           case cap_result do
             {:ok, _response} -> {:ok, "gNMI connection successful"}
@@ -73,7 +72,7 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
     start_time = System.monotonic_time(:millisecond)
 
     result =
-      case load_credential(device) do
+      case Helpers.load_credential(device) do
         nil ->
           {:error, :no_credential}
 
@@ -111,23 +110,23 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
         ssh_opts
       end
 
-    case ssh_client().connect(
+    case Helpers.ssh_client().connect(
            String.to_charlist(device.ip_address),
            device.netconf_port,
            ssh_opts
          ) do
       {:ok, ssh_ref} ->
         result =
-          with {:ok, channel_id} <- ssh_client().session_channel(ssh_ref, @channel_timeout),
+          with {:ok, channel_id} <- Helpers.ssh_client().session_channel(ssh_ref, @channel_timeout),
                :success <-
-                 ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
+                 Helpers.ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
             {:ok, "NETCONF connection successful"}
           else
             :failure -> {:error, :netconf_subsystem_failed}
             {:error, reason} -> {:error, reason}
           end
 
-        ssh_client().close(ssh_ref)
+        Helpers.ssh_client().close(ssh_ref)
         result
 
       {:error, reason} ->
@@ -146,31 +145,4 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
   defp format_error(:netconf_subsystem_failed), do: "NETCONF subsystem negotiation failed"
   defp format_error(reason), do: "Connection failed: #{inspect(reason)}"
 
-  defp load_credential(device) do
-    if device.credential_id do
-      try do
-        Devices.get_credential!(device.credential_id)
-      rescue
-        Ecto.NoResultsError -> nil
-      end
-    else
-      nil
-    end
-  end
-
-  defp grpc_client do
-    Application.get_env(
-      :switch_telemetry,
-      :grpc_client,
-      SwitchTelemetry.Collector.DefaultGrpcClient
-    )
-  end
-
-  defp ssh_client do
-    Application.get_env(
-      :switch_telemetry,
-      :ssh_client,
-      SwitchTelemetry.Collector.DefaultSshClient
-    )
-  end
 end

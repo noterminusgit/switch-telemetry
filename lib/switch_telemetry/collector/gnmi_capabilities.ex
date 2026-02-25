@@ -4,7 +4,7 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
   """
   require Logger
 
-  alias SwitchTelemetry.Collector.{SubscriptionPaths, TlsHelper}
+  alias SwitchTelemetry.Collector.{Helpers, SubscriptionPaths, TlsHelper}
   alias SwitchTelemetry.Devices
 
   @connect_timeout 10_000
@@ -34,15 +34,15 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
   @spec fetch_capabilities(Devices.Device.t()) ::
           {:ok, %{paths: [String.t()], device_model: String.t() | nil}} | {:error, term()}
   def fetch_capabilities(device) do
-    credential = load_credential(device)
+    credential = Helpers.load_credential(device)
     grpc_opts = TlsHelper.build_grpc_opts(device.secure_mode, credential)
     grpc_opts = Keyword.merge(grpc_opts, adapter_opts: [connect_timeout: @connect_timeout])
     target = "#{device.ip_address}:#{device.gnmi_port}"
 
-    with {:ok, channel} <- grpc_client().connect(target, grpc_opts),
+    with {:ok, channel} <- Helpers.grpc_client().connect(target, grpc_opts),
          {:ok, response} <-
-           grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout) do
-      grpc_client().disconnect(channel)
+           Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout) do
+      Helpers.grpc_client().disconnect(channel)
 
       models = extract_models(response)
       paths = models_to_paths(models, device.platform)
@@ -170,23 +170,4 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
     |> Enum.uniq()
   end
 
-  defp load_credential(device) do
-    if device.credential_id do
-      try do
-        Devices.get_credential!(device.credential_id)
-      rescue
-        Ecto.NoResultsError -> nil
-      end
-    else
-      nil
-    end
-  end
-
-  defp grpc_client do
-    Application.get_env(
-      :switch_telemetry,
-      :grpc_client,
-      SwitchTelemetry.Collector.DefaultGrpcClient
-    )
-  end
 end

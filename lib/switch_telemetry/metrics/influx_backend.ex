@@ -113,40 +113,22 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     bucket = influx_config(:bucket)
     flux_duration = pg_interval_to_flux(bucket_size)
 
+    base = base_flux_query(bucket, device_id, path, "value_float", time_range)
+
     flux = """
-    from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_float")
+    #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: mean, createEmpty: false)
       |> yield(name: "mean")
 
-    from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_float")
+    #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: max, createEmpty: false)
       |> yield(name: "max")
 
-    from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_float")
+    #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: count, createEmpty: false)
       |> yield(name: "count")
 
-    from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_float")
+    #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: min, createEmpty: false)
       |> yield(name: "min")
     """
@@ -170,21 +152,13 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
     flux_duration = pg_interval_to_flux(bucket_size)
     interval_seconds = pg_interval_to_seconds(bucket_size)
 
+    base = base_flux_query(bucket, device_id, path, "value_int", time_range)
+
     flux = """
-    max_data = from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_int")
+    max_data = #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: max, createEmpty: false)
 
-    min_data = from(bucket: "#{bucket}")
-      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
-      |> filter(fn: (r) => r._measurement == "metrics")
-      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
-      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
-      |> filter(fn: (r) => r._field == "value_int")
+    min_data = #{base}
       |> aggregateWindow(every: #{flux_duration}, fn: min, createEmpty: false)
 
     join(tables: {max: max_data, min: min_data}, on: ["_time", "device_id", "path"])
@@ -254,6 +228,18 @@ defmodule SwitchTelemetry.Metrics.InfluxBackend do
 
         []
     end
+  end
+
+  # Shared filter chain for raw-bucket queries (query_raw + query_rate)
+  defp base_flux_query(bucket, device_id, path, field, time_range) do
+    """
+    from(bucket: "#{bucket}")
+      |> range(start: #{format_time(time_range.start)}, stop: #{format_time(time_range.end)})
+      |> filter(fn: (r) => r._measurement == "metrics")
+      |> filter(fn: (r) => r.device_id == "#{escape_flux(device_id)}")
+      |> filter(fn: (r) => r.path == "#{escape_flux(path)}")
+      |> filter(fn: (r) => r._field == "#{field}")\
+    """
   end
 
   # Query a downsampled bucket (metrics_5m, metrics_1h)

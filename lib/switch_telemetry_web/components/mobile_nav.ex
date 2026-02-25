@@ -7,11 +7,16 @@ defmodule SwitchTelemetryWeb.Components.MobileNav do
   """
   use SwitchTelemetryWeb, :html
 
+  alias SwitchTelemetryWeb.Components.NavItems
+
   attr :id, :string, default: "mobile-nav"
   attr :current_user, :map, required: true
   attr :current_path, :string, required: true
 
   def mobile_nav(assigns) do
+    assigns = assign(assigns, :nav_items, NavItems.items())
+    assigns = assign(assigns, :admin_item, NavItems.admin_item())
+
     ~H"""
     <div id={@id} class="relative z-50 hidden md:hidden" role="dialog" aria-modal="true">
       <div
@@ -42,53 +47,19 @@ defmodule SwitchTelemetryWeb.Components.MobileNav do
                 <li>
                   <ul role="list" class="-mx-2 space-y-1">
                     <.mobile_nav_item
-                      path={~p"/dashboards"}
+                      :for={item <- @nav_items}
+                      path={item.path}
                       current_path={@current_path}
-                      icon="hero-chart-bar-square"
-                      label="Dashboards"
-                      nav_id={@id}
-                    />
-                    <.mobile_nav_item
-                      path={~p"/devices"}
-                      current_path={@current_path}
-                      icon="hero-server-stack"
-                      label="Devices"
-                      nav_id={@id}
-                    />
-                    <.mobile_nav_item
-                      path={~p"/streams"}
-                      current_path={@current_path}
-                      icon="hero-signal"
-                      label="Streams"
-                      nav_id={@id}
-                    />
-                    <.mobile_nav_item
-                      path={~p"/alerts"}
-                      current_path={@current_path}
-                      icon="hero-bell-alert"
-                      label="Alerts"
-                      nav_id={@id}
-                    />
-                    <.mobile_nav_item
-                      path={~p"/credentials"}
-                      current_path={@current_path}
-                      icon="hero-key"
-                      label="Credentials"
-                      nav_id={@id}
-                    />
-                    <.mobile_nav_item
-                      path={~p"/settings"}
-                      current_path={@current_path}
-                      icon="hero-cog-6-tooth"
-                      label="Settings"
+                      icon={item.icon}
+                      label={item.label}
                       nav_id={@id}
                     />
                     <.mobile_nav_item
                       :if={@current_user.role == :admin}
-                      path={~p"/admin/users"}
+                      path={@admin_item.path}
                       current_path={@current_path}
-                      icon="hero-users"
-                      label="Users"
+                      icon={@admin_item.icon}
+                      label={@admin_item.label}
                       nav_id={@id}
                     />
                   </ul>
