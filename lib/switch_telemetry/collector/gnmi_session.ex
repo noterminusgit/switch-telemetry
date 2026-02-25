@@ -193,15 +193,27 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       end
 
     Enum.map(notif.update, fn %Gnmi.Update{path: path, val: typed_val} ->
+      formatted_path = format_path(notif.prefix, path)
+      value_float = extract_float(typed_val)
+      value_int = extract_int(typed_val)
+      value_str = extract_str(typed_val)
+
+      if is_nil(value_float) and is_nil(value_int) and is_nil(value_str) do
+        Logger.warning(
+          "gNMI value extraction failed for #{device.hostname} path=#{formatted_path} " <>
+            "typed_value=#{inspect(typed_val)}"
+        )
+      end
+
       %{
         time: timestamp,
         device_id: device.id,
-        path: format_path(notif.prefix, path),
+        path: formatted_path,
         source: "gnmi",
         tags: extract_tags(path),
-        value_float: extract_float(typed_val),
-        value_int: extract_int(typed_val),
-        value_str: extract_str(typed_val)
+        value_float: value_float,
+        value_int: value_int,
+        value_str: value_str
       }
     end)
   end
@@ -233,12 +245,15 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   defp extract_float(%Gnmi.TypedValue{value: {:double_val, v}}), do: v
   defp extract_float(%Gnmi.TypedValue{value: {:float_val, v}}), do: v
+  defp extract_float(%Gnmi.TypedValue{value: {:int_val, v}}), do: v / 1
+  defp extract_float(%Gnmi.TypedValue{value: {:uint_val, v}}), do: v / 1
 
   defp extract_float(%Gnmi.TypedValue{value: {encoding, bytes}})
        when encoding in [:json_ietf_val, :json_val] do
     case decode_json_value(bytes) do
       v when is_float(v) -> v
       v when is_integer(v) -> v / 1
+      v when is_binary(v) -> parse_number_string(v)
       _ -> nil
     end
   end
@@ -252,6 +267,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
        when encoding in [:json_ietf_val, :json_val] do
     case decode_json_value(bytes) do
       v when is_integer(v) -> v
+      v when is_binary(v) -> parse_integer_string(v)
       _ -> nil
     end
   end
@@ -271,10 +287,30 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   defp extract_str(_), do: nil
 
+  # RFC 7951: YANG uint64/int64 are encoded as JSON strings to avoid precision loss.
+  # Cisco IOS-XE sends counter values like "12345678" (quoted) in JSON_IETF encoding.
+  defp parse_number_string(s) do
+    case Float.parse(s) do
+      {v, ""} -> v
+      _ -> nil
+    end
+  end
+
+  defp parse_integer_string(s) do
+    case Integer.parse(s) do
+      {v, ""} -> v
+      _ -> nil
+    end
+  end
+
   defp decode_json_value(bytes) when is_binary(bytes) do
     case Jason.decode(bytes) do
-      {:ok, val} -> val
-      {:error, _} -> nil
+      {:ok, val} ->
+        val
+
+      {:error, reason} ->
+        Logger.warning("gNMI JSON decode failed: #{inspect(reason)} bytes=#{inspect(bytes)}")
+        nil
     end
   end
 

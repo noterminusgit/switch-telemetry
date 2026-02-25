@@ -379,17 +379,34 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert result == 1.5
     end
 
-    test "extract_float logic returns nil for int_val" do
+    test "extract_float logic coerces int_val to float" do
       tv = %Gnmi.TypedValue{value: {:int_val, 42}}
 
       result =
         case tv.value do
           {:double_val, v} -> v
           {:float_val, v} -> v
+          {:int_val, v} -> v / 1
+          {:uint_val, v} -> v / 1
           _ -> nil
         end
 
-      assert result == nil
+      assert result == 42.0
+    end
+
+    test "extract_float logic coerces uint_val to float" do
+      tv = %Gnmi.TypedValue{value: {:uint_val, 12_345_678}}
+
+      result =
+        case tv.value do
+          {:double_val, v} -> v
+          {:float_val, v} -> v
+          {:int_val, v} -> v / 1
+          {:uint_val, v} -> v / 1
+          _ -> nil
+        end
+
+      assert result == 12_345_678.0
     end
 
     test "extract_int logic for int_val" do
@@ -540,6 +557,8 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
           case tv.value do
             {:double_val, v} -> v
             {:float_val, v} -> v
+            {:int_val, v} -> v / 1
+            {:uint_val, v} -> v / 1
             _ -> nil
           end,
         value_int:
@@ -560,9 +579,94 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert metric.path == "/interfaces/interface[name=eth0]/in-octets"
       assert metric.source == "gnmi"
       assert metric.tags == %{"name" => "eth0"}
-      assert metric.value_float == nil
+      assert metric.value_float == 12345.0
       assert metric.value_int == 12345
       assert metric.value_str == nil
+    end
+  end
+
+  describe "RFC 7951 JSON_IETF string-encoded numbers" do
+    test "string-encoded integer parses as float" do
+      # Cisco IOS-XE sends YANG uint64 as JSON string per RFC 7951
+      bytes = Jason.encode!("12345678")
+
+      result =
+        case Jason.decode(bytes) do
+          {:ok, v} when is_float(v) -> v
+          {:ok, v} when is_integer(v) -> v / 1
+          {:ok, v} when is_binary(v) -> parse_number_string(v)
+          _ -> nil
+        end
+
+      assert result == 12_345_678.0
+    end
+
+    test "string-encoded float parses as float" do
+      bytes = Jason.encode!("3.14")
+
+      result =
+        case Jason.decode(bytes) do
+          {:ok, v} when is_float(v) -> v
+          {:ok, v} when is_integer(v) -> v / 1
+          {:ok, v} when is_binary(v) -> parse_number_string(v)
+          _ -> nil
+        end
+
+      assert result == 3.14
+    end
+
+    test "string-encoded integer parses as integer" do
+      bytes = Jason.encode!("99999")
+
+      result =
+        case Jason.decode(bytes) do
+          {:ok, v} when is_integer(v) -> v
+          {:ok, v} when is_binary(v) -> parse_integer_string(v)
+          _ -> nil
+        end
+
+      assert result == 99999
+    end
+
+    test "non-numeric string returns nil for float" do
+      bytes = Jason.encode!("not-a-number")
+
+      result =
+        case Jason.decode(bytes) do
+          {:ok, v} when is_float(v) -> v
+          {:ok, v} when is_integer(v) -> v / 1
+          {:ok, v} when is_binary(v) -> parse_number_string(v)
+          _ -> nil
+        end
+
+      assert result == nil
+    end
+
+    test "non-numeric string returns nil for integer" do
+      bytes = Jason.encode!("not-a-number")
+
+      result =
+        case Jason.decode(bytes) do
+          {:ok, v} when is_integer(v) -> v
+          {:ok, v} when is_binary(v) -> parse_integer_string(v)
+          _ -> nil
+        end
+
+      assert result == nil
+    end
+
+    defp parse_number_string(s) do
+      case Float.parse(s) do
+        {v, ""} -> v
+        _ -> nil
+      end
+    end
+
+    defp parse_integer_string(s) do
+      case Integer.parse(s) do
+        {v, ""} -> v
+        _ -> nil
+      end
     end
   end
 
@@ -1863,7 +1967,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert metric.source == "gnmi"
       assert metric.tags == %{"name" => "eth0"}
       assert metric.value_int == 12345
-      assert metric.value_float == nil
+      assert metric.value_float == 12345.0
       assert metric.value_str == nil
       assert %DateTime{} = metric.time
 
@@ -2134,7 +2238,7 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert_receive {:inserted, metrics}, 5000
       [metric] = metrics
       assert metric.value_int == -42
-      assert metric.value_float == nil
+      assert metric.value_float == -42.0
     end
 
     test "processes mixed update and sync_response", %{state: state} do
