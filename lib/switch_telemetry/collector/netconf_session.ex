@@ -27,7 +27,16 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   </hello>]]>]]>
   """
 
-  defstruct [:device, :ssh_ref, :channel_id, :timer_ref, :connected_at, buffer: "", message_id: 1, retry_count: 0]
+  defstruct [
+    :device,
+    :ssh_ref,
+    :channel_id,
+    :timer_ref,
+    :connected_at,
+    buffer: "",
+    message_id: 1,
+    retry_count: 0
+  ]
 
   # --- Public API ---
 
@@ -104,13 +113,26 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
   def handle_info({:ssh_cm, _ref, {:closed, _channel}}, state) do
     uptime = format_uptime(state.connected_at)
-    Logger.warning("session closed after #{uptime}, reconnecting (retry #{state.retry_count + 1})")
+
+    Logger.warning(
+      "session closed after #{uptime}, reconnecting (retry #{state.retry_count + 1})"
+    )
+
     StreamMonitor.report_disconnected(state.device.id, :netconf, :channel_closed)
     cleanup_ssh(state)
     delay = Helpers.retry_delay(state.retry_count)
     Logger.info("retry #{state.retry_count + 1} in #{div(delay, 1000)}s")
     Process.send_after(self(), :connect, delay)
-    {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: "", retry_count: state.retry_count + 1, connected_at: nil}}
+
+    {:noreply,
+     %{
+       state
+       | ssh_ref: nil,
+         channel_id: nil,
+         buffer: "",
+         retry_count: state.retry_count + 1,
+         connected_at: nil
+     }}
   end
 
   def handle_info({:ssh_cm, _ref, {:exit_status, _channel, _status}}, state) do
@@ -171,7 +193,14 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       {:ok, timer_ref} = :timer.send_interval(interval, :collect)
 
       {:noreply,
-       %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref, retry_count: 0, connected_at: System.monotonic_time(:second)}}
+       %{
+         state
+         | ssh_ref: ssh_ref,
+           channel_id: channel_id,
+           timer_ref: timer_ref,
+           retry_count: 0,
+           connected_at: System.monotonic_time(:second)
+       }}
     else
       error ->
         Logger.error("connection failed: #{inspect(error)}")
@@ -303,5 +332,4 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       Helpers.ssh_client().close(state.ssh_ref)
     end
   end
-
 end

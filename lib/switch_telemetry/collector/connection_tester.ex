@@ -43,7 +43,9 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
       case Helpers.grpc_client().connect(target, grpc_opts) do
         {:ok, channel} ->
           cap_result =
-            Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout)
+            Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{},
+              timeout: @rpc_timeout
+            )
 
           Helpers.grpc_client().disconnect(channel)
 
@@ -117,9 +119,15 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
          ) do
       {:ok, ssh_ref} ->
         result =
-          with {:ok, channel_id} <- Helpers.ssh_client().session_channel(ssh_ref, @channel_timeout),
+          with {:ok, channel_id} <-
+                 Helpers.ssh_client().session_channel(ssh_ref, @channel_timeout),
                :success <-
-                 Helpers.ssh_client().subsystem(ssh_ref, channel_id, ~c"netconf", @channel_timeout) do
+                 Helpers.ssh_client().subsystem(
+                   ssh_ref,
+                   channel_id,
+                   ~c"netconf",
+                   @channel_timeout
+                 ) do
             {:ok, "NETCONF connection successful"}
           else
             :failure -> {:error, :netconf_subsystem_failed}
@@ -144,5 +152,4 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
   defp format_error(:no_credential), do: "No credential configured for NETCONF"
   defp format_error(:netconf_subsystem_failed), do: "NETCONF subsystem negotiation failed"
   defp format_error(reason), do: "Connection failed: #{inspect(reason)}"
-
 end

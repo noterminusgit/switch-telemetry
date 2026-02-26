@@ -2368,7 +2368,9 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       Process.cancel_timer(new_state.watchdog_ref)
     end
 
-    test "watchdog_timeout DOWN increments stale_reconnects and schedules reconnect", %{state: state} do
+    test "watchdog_timeout DOWN increments stale_reconnects and schedules reconnect", %{
+      state: state
+    } do
       ref = state.task_ref
       pid = state.task_pid
 

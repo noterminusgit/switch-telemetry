@@ -79,7 +79,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
         send(self(), :subscribe)
 
         {:noreply,
-         %{state | channel: channel, retry_count: 0, credential: credential, connected_at: System.monotonic_time(:second)}}
+         %{
+           state
+           | channel: channel,
+             retry_count: 0,
+             credential: credential,
+             connected_at: System.monotonic_time(:second)
+         }}
 
       {:error, reason} ->
         Logger.warning("connection failed: #{inspect(reason)}")
@@ -149,7 +155,14 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       Process.send_after(self(), :connect, delay)
 
       {:noreply,
-       %{state | stream: nil, task_ref: nil, task_pid: nil, watchdog_ref: nil, stale_reconnects: strikes}}
+       %{
+         state
+         | stream: nil,
+           task_ref: nil,
+           task_pid: nil,
+           watchdog_ref: nil,
+           stale_reconnects: strikes
+       }}
     end
   end
 
@@ -160,7 +173,9 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     Logger.warning("stream ended after #{uptime}, reconnecting (retry #{state.retry_count + 1})")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :stream_ended)
     schedule_retry(state)
-    {:noreply, cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
+
+    {:noreply,
+     cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
   end
 
   # Stream task killed by code purge during development recompilation.
@@ -178,7 +193,9 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     Logger.error("stream task crashed after #{uptime}: #{inspect(reason, limit: 200)}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
     schedule_retry(state)
-    {:noreply, cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
+
+    {:noreply,
+     cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
@@ -461,5 +478,4 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     s = inspect(term, limit: 3, printable_limit: 80)
     if String.length(s) > limit, do: String.slice(s, 0, limit) <> "...", else: s
   end
-
 end

@@ -41,7 +41,9 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
 
     with {:ok, channel} <- Helpers.grpc_client().connect(target, grpc_opts),
          {:ok, response} <-
-           Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{}, timeout: @rpc_timeout) do
+           Helpers.grpc_client().capabilities(channel, %Gnmi.CapabilityRequest{},
+             timeout: @rpc_timeout
+           ) do
       Helpers.grpc_client().disconnect(channel)
 
       models = extract_models(response)
@@ -169,5 +171,4 @@ defmodule SwitchTelemetry.Collector.GnmiCapabilities do
     end)
     |> Enum.uniq()
   end
-
 end
