@@ -18,7 +18,7 @@ defmodule SwitchTelemetry.Application do
   end
 
   defp setup_file_logger do
-    log_dir = Path.join(Application.app_dir(:switch_telemetry, "../../"), "logs")
+    log_dir = Path.join(File.cwd!(), "logs")
     File.mkdir_p!(log_dir)
 
     timestamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d_%H-%M-%S")
