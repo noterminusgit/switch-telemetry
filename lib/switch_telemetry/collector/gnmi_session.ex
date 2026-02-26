@@ -17,7 +17,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   @connect_timeout 10_000
 
-  defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential]
+  defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential, :connected_at]
 
   # --- Public API ---
 
@@ -64,7 +64,9 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
         StreamMonitor.report_connected(state.device.id, :gnmi)
         send(self(), :subscribe)
-        {:noreply, %{state | channel: channel, retry_count: 0, credential: credential}}
+
+        {:noreply,
+         %{state | channel: channel, retry_count: 0, credential: credential, connected_at: System.monotonic_time(:second)}}
 
       {:error, reason} ->
         Logger.warning("connection failed: #{inspect(reason)}")
@@ -104,10 +106,11 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   # Stream task completed normally (stream ended)
   def handle_info({ref, :stream_ended}, %{task_ref: ref} = state) do
     Process.demonitor(ref, [:flush])
-    Logger.warning("stream ended, reconnecting")
+    uptime = format_uptime(state.connected_at)
+    Logger.warning("stream ended after #{uptime}, reconnecting (retry #{state.retry_count + 1})")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :stream_ended)
     schedule_retry(state)
-    {:noreply, %{state | stream: nil, task_ref: nil}}
+    {:noreply, %{state | stream: nil, task_ref: nil, connected_at: nil}}
   end
 
   # Stream task killed by code purge during development recompilation.
@@ -121,16 +124,19 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
 
   # Stream task crashed for other reasons — full reconnect with backoff
   def handle_info({:DOWN, ref, :process, _pid, reason}, %{task_ref: ref} = state) do
-    Logger.error("stream task crashed: #{inspect(reason)}")
+    uptime = format_uptime(state.connected_at)
+    Logger.error("stream task crashed after #{uptime}: #{inspect(reason, limit: 200)}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
     schedule_retry(state)
-    {:noreply, %{state | stream: nil, task_ref: nil}}
+    {:noreply, %{state | stream: nil, task_ref: nil, connected_at: nil}}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
 
   @impl true
-  def terminate(_reason, state) do
+  def terminate(reason, state) do
+    uptime = format_uptime(state.connected_at)
+    Logger.info("terminating reason=#{inspect(reason)} uptime=#{uptime}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :terminated)
 
     if state.channel do
@@ -357,7 +363,21 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   end
 
   defp schedule_retry(state) do
-    Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+    delay = Helpers.retry_delay(state.retry_count)
+    Logger.info("retry #{state.retry_count + 1} in #{div(delay, 1000)}s")
+    Process.send_after(self(), :connect, delay)
+  end
+
+  defp format_uptime(nil), do: "n/a"
+
+  defp format_uptime(started_at) do
+    secs = System.monotonic_time(:second) - started_at
+
+    cond do
+      secs < 60 -> "#{secs}s"
+      secs < 3600 -> "#{div(secs, 60)}m#{rem(secs, 60)}s"
+      true -> "#{div(secs, 3600)}h#{div(rem(secs, 3600), 60)}m"
+    end
   end
 
   # Log first occurrence, then every 100th, with suppressed count

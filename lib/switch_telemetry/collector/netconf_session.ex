@@ -27,7 +27,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   </hello>]]>]]>
   """
 
-  defstruct [:device, :ssh_ref, :channel_id, :timer_ref, buffer: "", message_id: 1, retry_count: 0]
+  defstruct [:device, :ssh_ref, :channel_id, :timer_ref, :connected_at, buffer: "", message_id: 1, retry_count: 0]
 
   # --- Public API ---
 
@@ -50,6 +50,7 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   @impl true
   def init(opts) do
     device = Keyword.fetch!(opts, :device)
+    Logger.metadata(netconf_device: device.hostname)
     Process.flag(:trap_exit, true)
     send(self(), :connect)
     {:ok, %__MODULE__{device: device}}
@@ -61,10 +62,12 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
 
     case Helpers.load_credential(device) do
       nil ->
-        Logger.error("NETCONF connection to #{device.hostname} failed: no credential")
+        Logger.error("no credential, retry #{state.retry_count + 1}")
         Devices.update_device(device, %{status: :unreachable})
         StreamMonitor.report_disconnected(device.id, :netconf, :no_credential)
-        Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+        delay = Helpers.retry_delay(state.retry_count)
+        Logger.info("retry #{state.retry_count + 1} in #{div(delay, 1000)}s")
+        Process.send_after(self(), :connect, delay)
         {:noreply, %{state | retry_count: state.retry_count + 1}}
 
       credential ->
@@ -100,11 +103,14 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   end
 
   def handle_info({:ssh_cm, _ref, {:closed, _channel}}, state) do
-    Logger.warning("NETCONF session closed for #{state.device.hostname}, reconnecting")
+    uptime = format_uptime(state.connected_at)
+    Logger.warning("session closed after #{uptime}, reconnecting (retry #{state.retry_count + 1})")
     StreamMonitor.report_disconnected(state.device.id, :netconf, :channel_closed)
     cleanup_ssh(state)
-    Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
-    {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: "", retry_count: state.retry_count + 1}}
+    delay = Helpers.retry_delay(state.retry_count)
+    Logger.info("retry #{state.retry_count + 1} in #{div(delay, 1000)}s")
+    Process.send_after(self(), :connect, delay)
+    {:noreply, %{state | ssh_ref: nil, channel_id: nil, buffer: "", retry_count: state.retry_count + 1, connected_at: nil}}
   end
 
   def handle_info({:ssh_cm, _ref, {:exit_status, _channel, _status}}, state) do
@@ -118,7 +124,9 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
   def handle_info(_msg, state), do: {:noreply, state}
 
   @impl true
-  def terminate(_reason, state) do
+  def terminate(reason, state) do
+    uptime = format_uptime(state.connected_at)
+    Logger.info("terminating reason=#{inspect(reason)} uptime=#{uptime}")
     StreamMonitor.report_disconnected(state.device.id, :netconf, :terminated)
     cleanup_ssh(state)
     :ok
@@ -162,13 +170,16 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
       interval = device.collection_interval_ms || 30_000
       {:ok, timer_ref} = :timer.send_interval(interval, :collect)
 
-      {:noreply, %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref, retry_count: 0}}
+      {:noreply,
+       %{state | ssh_ref: ssh_ref, channel_id: channel_id, timer_ref: timer_ref, retry_count: 0, connected_at: System.monotonic_time(:second)}}
     else
       error ->
-        Logger.error("NETCONF connection to #{device.hostname} failed: #{inspect(error)}")
+        Logger.error("connection failed: #{inspect(error)}")
         Devices.update_device(device, %{status: :unreachable})
         StreamMonitor.report_disconnected(device.id, :netconf, error)
-        Process.send_after(self(), :connect, Helpers.retry_delay(state.retry_count))
+        delay = Helpers.retry_delay(state.retry_count)
+        Logger.info("retry #{state.retry_count + 1} in #{div(delay, 1000)}s")
+        Process.send_after(self(), :connect, delay)
         {:noreply, %{state | retry_count: state.retry_count + 1}}
     end
   end
@@ -269,6 +280,18 @@ defmodule SwitchTelemetry.Collector.NetconfSession do
     )
     |> SwitchTelemetry.Repo.all()
     |> List.flatten()
+  end
+
+  defp format_uptime(nil), do: "n/a"
+
+  defp format_uptime(started_at) do
+    secs = System.monotonic_time(:second) - started_at
+
+    cond do
+      secs < 60 -> "#{secs}s"
+      secs < 3600 -> "#{div(secs, 60)}m#{rem(secs, 60)}s"
+      true -> "#{div(secs, 3600)}h#{div(rem(secs, 3600), 60)}m"
+    end
   end
 
   defp cleanup_ssh(state) do

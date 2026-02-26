@@ -4,6 +4,8 @@ defmodule SwitchTelemetry.Application do
 
   @impl true
   def start(_type, _args) do
+    setup_file_logger()
+
     node_role = System.get_env("NODE_ROLE", "both")
 
     children =
@@ -13,6 +15,28 @@ defmodule SwitchTelemetry.Application do
 
     opts = [strategy: :one_for_one, name: SwitchTelemetry.Supervisor]
     Supervisor.start_link(children, opts)
+  end
+
+  defp setup_file_logger do
+    log_dir = Path.join(Application.app_dir(:switch_telemetry, "../../"), "logs")
+    File.mkdir_p!(log_dir)
+
+    timestamp = Calendar.strftime(DateTime.utc_now(), "%Y-%m-%d_%H-%M-%S")
+    log_file = Path.join(log_dir, "switch_telemetry_#{timestamp}.log")
+
+    :logger.add_handler(:file_log, :logger_std_h, %{
+      config: %{
+        file: String.to_charlist(log_file),
+        max_no_bytes: 10_485_760,
+        max_no_files: 100
+      },
+      formatter:
+        {:logger_formatter,
+         %{
+           template: [:time, " ", :level, " ", :msg, "\n"],
+           single_line: true
+         }}
+    })
   end
 
   @impl true
