@@ -16,8 +16,21 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   alias SwitchTelemetry.Collector.{Helpers, StreamMonitor, Subscription, TlsHelper}
 
   @connect_timeout 10_000
+  @watchdog_interval :timer.seconds(90)
+  @max_stale_reconnects 3
 
-  defstruct [:device, :channel, :stream, :task_ref, :retry_count, :credential, :connected_at]
+  defstruct [
+    :device,
+    :channel,
+    :stream,
+    :task_ref,
+    :task_pid,
+    :retry_count,
+    :credential,
+    :connected_at,
+    :watchdog_ref,
+    stale_reconnects: 0
+  ]
 
   # --- Public API ---
 
@@ -99,8 +112,45 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     Helpers.grpc_client().send_request(stream, subscribe_request)
 
     task = Task.async(fn -> read_stream(stream, state.device) end)
+    watchdog_ref = Process.send_after(self(), :watchdog_check, @watchdog_interval)
 
-    {:noreply, %{state | stream: stream, task_ref: task.ref}}
+    {:noreply,
+     %{state | stream: stream, task_ref: task.ref, task_pid: task.pid, watchdog_ref: watchdog_ref}}
+  end
+
+  def handle_info(:watchdog_check, %{task_pid: pid} = state) when is_pid(pid) do
+    stream_status = StreamMonitor.get_stream(state.device.id, :gnmi)
+
+    if stream_status && stream_status.message_count > 0 do
+      Logger.debug("gnmi_rx: watchdog healthy msg_count=#{stream_status.message_count}")
+      ref = Process.send_after(self(), :watchdog_check, @watchdog_interval)
+      {:noreply, %{state | stale_reconnects: 0, watchdog_ref: ref}}
+    else
+      Logger.warning("watchdog: no data received, killing stream task")
+      Process.exit(pid, :watchdog_timeout)
+      {:noreply, %{state | watchdog_ref: nil}}
+    end
+  end
+
+  def handle_info(:watchdog_check, state) do
+    {:noreply, %{state | watchdog_ref: nil}}
+  end
+
+  # Stream task killed by watchdog — three-strike escalation
+  def handle_info({:DOWN, ref, :process, _pid, :watchdog_timeout}, %{task_ref: ref} = state) do
+    strikes = state.stale_reconnects + 1
+
+    if strikes >= @max_stale_reconnects do
+      Logger.error("watchdog: #{strikes} consecutive stale streams, stopping for Horde restart")
+      {:stop, :normal, cancel_watchdog(%{state | stale_reconnects: strikes})}
+    else
+      Logger.warning("watchdog: stale strike #{strikes}/#{@max_stale_reconnects}, reconnecting")
+      delay = Helpers.retry_delay(strikes)
+      Process.send_after(self(), :connect, delay)
+
+      {:noreply,
+       %{state | stream: nil, task_ref: nil, task_pid: nil, watchdog_ref: nil, stale_reconnects: strikes}}
+    end
   end
 
   # Stream task completed normally (stream ended)
@@ -110,7 +160,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     Logger.warning("stream ended after #{uptime}, reconnecting (retry #{state.retry_count + 1})")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, :stream_ended)
     schedule_retry(state)
-    {:noreply, %{state | stream: nil, task_ref: nil, connected_at: nil}}
+    {:noreply, cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
   end
 
   # Stream task killed by code purge during development recompilation.
@@ -119,7 +169,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       when ch != nil do
     Logger.info("stream reader restarting (code reload)")
     send(self(), :subscribe)
-    {:noreply, %{state | stream: nil, task_ref: nil}}
+    {:noreply, cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil})}
   end
 
   # Stream task crashed for other reasons — full reconnect with backoff
@@ -128,7 +178,7 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     Logger.error("stream task crashed after #{uptime}: #{inspect(reason, limit: 200)}")
     StreamMonitor.report_disconnected(state.device.id, :gnmi, reason)
     schedule_retry(state)
-    {:noreply, %{state | stream: nil, task_ref: nil, connected_at: nil}}
+    {:noreply, cancel_watchdog(%{state | stream: nil, task_ref: nil, task_pid: nil, connected_at: nil})}
   end
 
   def handle_info(_msg, state), do: {:noreply, state}
@@ -151,9 +201,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
   defp read_stream(stream, device) do
     case Helpers.grpc_client().recv(stream) do
       {:ok, response_stream} ->
+        Logger.debug("gnmi_rx: recv returned stream, starting iteration")
+
         response_stream
         |> Stream.each(fn
           {:ok, %Gnmi.SubscribeResponse{response: {:update, notification}}} ->
+            path_count = length(notification.update || [])
+            Logger.debug("gnmi_rx: update path_count=#{path_count}")
             metrics = parse_notification(device, notification)
             Helpers.persist_and_broadcast(metrics, device.id, :gnmi)
 
@@ -163,6 +217,9 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
           {:error, reason} ->
             Logger.error("stream error: #{inspect(reason)}")
             StreamMonitor.report_error(device.id, :gnmi, reason)
+
+          other ->
+            Logger.warning("gnmi_rx: unmatched response: #{inspect(other, limit: 200)}")
         end)
         |> Stream.run()
 
@@ -361,6 +418,13 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
       end
     end)
   end
+
+  defp cancel_watchdog(%{watchdog_ref: ref} = state) when is_reference(ref) do
+    Process.cancel_timer(ref)
+    %{state | watchdog_ref: nil}
+  end
+
+  defp cancel_watchdog(state), do: state
 
   defp schedule_retry(state) do
     delay = Helpers.retry_delay(state.retry_count)

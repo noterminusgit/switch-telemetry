@@ -2322,4 +2322,122 @@ defmodule SwitchTelemetry.Collector.GnmiSessionTest do
       assert metric.tags["ifindex"] == "1"
     end
   end
+
+  describe "watchdog timer" do
+    setup do
+      unique_id = "dev_wd_#{System.unique_integer([:positive])}"
+      device = %{id: unique_id, hostname: "switch-wd"}
+      task_pid = spawn(fn -> Process.sleep(:infinity) end)
+
+      state = %GnmiSession{
+        device: device,
+        retry_count: 0,
+        channel: :fake_channel,
+        stream: :fake_stream,
+        task_ref: make_ref(),
+        task_pid: task_pid,
+        stale_reconnects: 0,
+        watchdog_ref: nil
+      }
+
+      {:ok, state: state, device: device, task_pid: task_pid}
+    end
+
+    test "watchdog kills task when StreamMonitor reports no data", %{state: state, task_pid: pid} do
+      mon_ref = Process.monitor(pid)
+      assert Process.alive?(pid)
+
+      {:noreply, new_state} = GnmiSession.handle_info(:watchdog_check, state)
+
+      assert_receive {:DOWN, ^mon_ref, :process, ^pid, :watchdog_timeout}, 2000
+      assert new_state.watchdog_ref == nil
+    end
+
+    test "watchdog reschedules and resets stale_reconnects when data is flowing", %{state: state} do
+      # Report connected + message so StreamMonitor has a positive message_count
+      SwitchTelemetry.Collector.StreamMonitor.report_connected(state.device.id, :gnmi)
+      SwitchTelemetry.Collector.StreamMonitor.report_message(state.device.id, :gnmi)
+      # Give the GenServer time to process the casts
+      Process.sleep(50)
+
+      state_with_strikes = %{state | stale_reconnects: 2}
+      {:noreply, new_state} = GnmiSession.handle_info(:watchdog_check, state_with_strikes)
+
+      assert new_state.stale_reconnects == 0
+      assert is_reference(new_state.watchdog_ref)
+      Process.cancel_timer(new_state.watchdog_ref)
+    end
+
+    test "watchdog_timeout DOWN increments stale_reconnects and schedules reconnect", %{state: state} do
+      ref = state.task_ref
+      pid = state.task_pid
+
+      {:noreply, new_state} =
+        GnmiSession.handle_info({:DOWN, ref, :process, pid, :watchdog_timeout}, state)
+
+      assert new_state.stale_reconnects == 1
+      assert new_state.stream == nil
+      assert new_state.task_ref == nil
+      assert new_state.task_pid == nil
+      # retry_delay(1) = 10s; verify :connect is scheduled via send_after
+      assert_receive :connect, 11_000
+    end
+
+    test "three strikes causes stop for Horde restart", %{state: state} do
+      ref = state.task_ref
+      pid = state.task_pid
+      state_at_limit = %{state | stale_reconnects: 2}
+
+      {:stop, :normal, final_state} =
+        GnmiSession.handle_info({:DOWN, ref, :process, pid, :watchdog_timeout}, state_at_limit)
+
+      assert final_state.stale_reconnects == 3
+    end
+
+    test "watchdog_check with no task_pid clears watchdog_ref", %{state: state} do
+      state_no_task = %{state | task_pid: nil}
+      {:noreply, new_state} = GnmiSession.handle_info(:watchdog_check, state_no_task)
+      assert new_state.watchdog_ref == nil
+    end
+
+    test "stream_ended cancels watchdog", %{state: state} do
+      ref = state.task_ref
+      watchdog_ref = Process.send_after(self(), :should_not_fire, 60_000)
+      state_with_wd = %{state | watchdog_ref: watchdog_ref}
+
+      {:noreply, new_state} = GnmiSession.handle_info({ref, :stream_ended}, state_with_wd)
+
+      assert new_state.watchdog_ref == nil
+      assert new_state.task_pid == nil
+      assert Process.cancel_timer(watchdog_ref) == false
+    end
+
+    test "killed (code reload) cancels watchdog", %{state: state} do
+      ref = state.task_ref
+      pid = state.task_pid
+      watchdog_ref = Process.send_after(self(), :should_not_fire, 60_000)
+      state_with_wd = %{state | watchdog_ref: watchdog_ref}
+
+      {:noreply, new_state} =
+        GnmiSession.handle_info({:DOWN, ref, :process, pid, :killed}, state_with_wd)
+
+      assert new_state.watchdog_ref == nil
+      assert new_state.task_pid == nil
+      assert Process.cancel_timer(watchdog_ref) == false
+    end
+
+    test "general DOWN crash cancels watchdog", %{state: state} do
+      ref = state.task_ref
+      pid = state.task_pid
+      watchdog_ref = Process.send_after(self(), :should_not_fire, 60_000)
+      state_with_wd = %{state | watchdog_ref: watchdog_ref}
+
+      {:noreply, new_state} =
+        GnmiSession.handle_info({:DOWN, ref, :process, pid, {:error, :boom}}, state_with_wd)
+
+      assert new_state.watchdog_ref == nil
+      assert new_state.task_pid == nil
+      assert Process.cancel_timer(watchdog_ref) == false
+    end
+  end
 end
