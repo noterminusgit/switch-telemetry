@@ -21,7 +21,7 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
   @rpc_timeout 30_000
   @channel_timeout 30_000
 
-  @spec test_connection(Devices.Device.t()) :: [test_result()]
+  @spec test_connection(SwitchTelemetry.Devices.Device.t()) :: [test_result()]
   def test_connection(device) do
     case device.transport do
       :gnmi -> [test_gnmi(device)]
@@ -30,7 +30,7 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
     end
   end
 
-  @spec test_gnmi(Devices.Device.t()) :: test_result()
+  @spec test_gnmi(SwitchTelemetry.Devices.Device.t()) :: test_result()
   def test_gnmi(device) do
     start_time = System.monotonic_time(:millisecond)
 
@@ -69,7 +69,7 @@ defmodule SwitchTelemetry.Collector.ConnectionTester do
     end
   end
 
-  @spec test_netconf(Devices.Device.t()) :: test_result()
+  @spec test_netconf(SwitchTelemetry.Devices.Device.t()) :: test_result()
   def test_netconf(device) do
     start_time = System.monotonic_time(:millisecond)
 
