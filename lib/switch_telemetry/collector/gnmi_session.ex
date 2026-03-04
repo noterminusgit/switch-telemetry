@@ -133,9 +133,14 @@ defmodule SwitchTelemetry.Collector.GnmiSession do
     if current_count > state.last_watchdog_count do
       Logger.debug("gnmi_rx: watchdog healthy msg_count=#{current_count}")
       ref = Process.send_after(self(), :watchdog_check, @watchdog_interval)
-      {:noreply, %{state | stale_reconnects: 0, watchdog_ref: ref, last_watchdog_count: current_count}}
+
+      {:noreply,
+       %{state | stale_reconnects: 0, watchdog_ref: ref, last_watchdog_count: current_count}}
     else
-      Logger.warning("watchdog: no data received since last check (count=#{current_count}), killing stream task")
+      Logger.warning(
+        "watchdog: no data received since last check (count=#{current_count}), killing stream task"
+      )
+
       Process.exit(pid, :watchdog_timeout)
       {:noreply, %{state | watchdog_ref: nil}}
     end
